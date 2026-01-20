@@ -3,11 +3,22 @@ import os
 import logging
 from typing import Dict, Any, Optional, List
 
+# 添加父目录到Python路径，解决相对导入问题
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastmcp import FastMCP
-from http_client import SAPHttpClient
-from config import MCP_SERVER_CONFIG
+
+# 尝试相对导入，如果失败则使用绝对导入
+try:
+    from .http_client import SAPHttpClient
+except ImportError:
+    from server.http_client import SAPHttpClient
+
+# 导入配置文件
+try:
+    from config import MCP_SERVER_CONFIG
+except ImportError:
+    from ..config import MCP_SERVER_CONFIG
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

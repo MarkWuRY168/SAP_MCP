@@ -16,7 +16,7 @@ SAP MCP (Model Context Protocol) Server is a platform for managing and controlli
 2. **Tool Detail Query**: Get tool details by tool ID, including input and output parameters
 3. **Tool Execution**: Convert data to recognizable format based on tool details, call SAP_MCP tool to get execution results
 
-### GUI Management Interface
+### Web Management Interface
 
 1. **Service Status Management**:
    - View MCP service running status
@@ -29,16 +29,15 @@ SAP MCP (Model Context Protocol) Server is a platform for managing and controlli
    - MCP server configuration (host, port, path)
    - Real-time configuration file saving
 
-3. **Project Information Display**:
-   - Project basic information
-   - Developer information
-   - Product promotion content
+3. **Tool Management**:
+   - Browse and search SAP MCP tools
+   - View tool details and parameters
+   - Execute tools with interactive forms
 
-4. **System Tray Functionality**:
-   - Minimize to system tray
-   - Run service in background
-   - Tray icon tooltip "SAP_MCP"
-   - Right-click menu for quick operations
+4. **Log Management**:
+   - View logs with filtering options
+   - Clear logs with confirmation
+   - Real-time log updates
 
 ## Project Structure
 
@@ -52,36 +51,30 @@ SAP_MCP/
 ├── requirements.txt           # Project dependencies
 ├── config.py                 # Configuration file (not committed to version control)
 ├── config.example.py         # Configuration file example
-├── gui/                       # GUI module
-│   ├── __init__.py           # Package initialization file
-│   ├── gui.py                # GUI entry file
-│   ├── main_window.py        # Main window
-│   ├── service_status.py     # Service status management
-│   ├── config_manager.py     # Configuration management
-│   ├── project_info.py       # Project information display
-│   └── utils.py             # Utility functions
 ├── server/                   # Server module
 │   ├── __init__.py          # Package initialization file
 │   ├── sap_mcp_server.py   # MCP server
 │   ├── sap_mcp_client.py   # MCP client
 │   └── http_client.py      # HTTP client
-├── mcpDemo/                 # MCP example code
-│   ├── my_server.py        # Example server
-│   └── my_client.py        # Example client
-└── .trae/                  # Project documentation
-    └── documents/
-        ├── SAP接口说明.md
-        ├── 数据库设计.md
-        └── 项目人员信息.md
+├── web/                      # Web management module
+│   ├── static/               # Static files (CSS, JS)
+│   ├── templates/            # HTML templates
+│   └── main.py              # Web server entry file
+├── log/                      # Log files directory
+└── mcpDemo/                 # MCP example code
+    ├── my_server.py        # Example server
+    └── my_client.py        # Example client
 ```
 
 ## Technology Stack
 
 - **Python**: >= 3.8
-- **PyQt5**: GUI framework
 - **FastMCP**: MCP protocol implementation
 - **httpx**: HTTP client
 - **pydantic**: Data validation and settings management
+- **FastAPI**: Web framework for management interface
+- **Uvicorn**: ASGI server for FastAPI
+- **Bootstrap 5**: Frontend CSS framework
 
 ## Installation Instructions
 
@@ -148,16 +141,16 @@ MCP_SERVER_CONFIG = {
 
 ### Starting the Service
 
-#### Method 1: Using GUI Interface
+#### Method 1: Using Web Management Interface
 
-1. Start GUI management interface:
+1. Start Web management interface:
    ```bash
-   python gui/gui.py
+   python -m uvicorn web.main:app --reload --host 0.0.0.0 --port 8080
    ```
 
-2. Click "Start Service" button in the GUI interface
+2. Open your web browser and navigate to `http://localhost:8080`
 
-3. After service starts, GUI will minimize to system tray and service runs in background
+3. Click "Start Service" button in the web interface
 
 #### Method 2: Command Line Start
 
@@ -168,23 +161,28 @@ MCP_SERVER_CONFIG = {
 
 2. Server will run on `http://127.0.0.1:8000/mcp`
 
-### Using GUI Interface
+### Using Web Management Interface
 
-1. **Service Status Tab**:
+1. **Service Management Page**:
    - View service running status
    - Start/Stop service
-   - View real-time logs
-   - Check port occupancy
+   - Check service configuration
 
-2. **Configuration Management Tab**:
+2. **Tool Management Page**:
+   - Browse and search SAP MCP tools
+   - View tool details and parameters
+   - Execute tools with interactive forms
+   - View tool execution results
+
+3. **Configuration Page**:
    - Modify SAP interface configuration
    - Modify MCP server configuration
    - Save configuration changes
 
-3. **Project Information Tab**:
-   - View project basic information
-   - View developer information
-   - View product promotion content
+4. **Logs Page**:
+   - View service logs with filtering options
+   - Clear logs with confirmation
+   - Real-time log updates
 
 ### Client Connection Example
 
@@ -249,7 +247,7 @@ mypy .
 pytest
 
 # Run tests and generate coverage report
-pytest --cov=gui --cov=server --cov-report=html
+pytest --cov=server --cov-report=html
 ```
 
 ### Building and Publishing
@@ -269,17 +267,16 @@ python -m twine upload dist/*
 1. **Port Occupancy Error**:
    - Check if port 8000 is occupied by other programs
    - Modify port number in `config.py`
-   - Use GUI port detection function
 
 2. **SAP Interface Connection Failure**:
    - Confirm SAP server address is correct
    - Check network connection
    - Verify username and password
 
-3. **GUI Interface Unresponsive**:
-   - Check if log reading thread is running normally
-   - Restart GUI application
-   - View log file for detailed error information
+3. **Web Interface Unresponsive**:
+   - Check if the web server is running
+   - Verify the server logs for errors
+   - Restart the web server application
 
 ## Developers
 

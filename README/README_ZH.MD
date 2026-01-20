@@ -16,7 +16,7 @@ SAP MCP（Model Context Protocol）Server是一个用于管理和控制SAP系统
 2. **工具明细查询**：根据工具号获取工具明细，包括传入传出参数
 3. **工具执行**：根据工具明细，将数据转换为可识别的格式，调用SAP_MCP工具获取执行结果
 
-### GUI管理界面
+### Web管理界面
 
 1. **服务状态管理**：
    - 查看MCP服务运行状态
@@ -29,16 +29,16 @@ SAP MCP（Model Context Protocol）Server是一个用于管理和控制SAP系统
    - MCP服务器配置（主机、端口、路径）
    - 配置文件实时保存
 
-3. **项目信息展示**：
-   - 项目基本信息
-   - 开发人员信息
-   - 产品推广内容
+3. **工具管理**：
+   - 浏览和搜索SAP MCP工具
+   - 查看工具详情和参数
+   - 通过交互式表单执行工具
+   - 查看工具执行结果
 
-4. **系统托盘功能**：
-   - 最小化到系统托盘
-   - 后台运行服务
-   - 托盘图标提示"SAP_MCP"
-   - 右键菜单快速操作
+4. **日志管理**：
+   - 查看带过滤选项的服务日志
+   - 带确认的日志清空
+   - 实时日志更新
 
 ## 项目结构
 
@@ -52,36 +52,30 @@ SAP_MCP/
 ├── requirements.txt           # 项目依赖
 ├── config.py                 # 配置文件（不提交到版本控制）
 ├── config.example.py         # 配置文件示例
-├── gui/                       # GUI模块
-│   ├── __init__.py           # 包初始化文件
-│   ├── gui.py                # GUI入口文件
-│   ├── main_window.py        # 主窗口
-│   ├── service_status.py     # 服务状态管理
-│   ├── config_manager.py     # 配置管理
-│   ├── project_info.py       # 项目信息展示
-│   └── utils.py             # 工具函数
 ├── server/                   # 服务器模块
 │   ├── __init__.py          # 包初始化文件
 │   ├── sap_mcp_server.py   # MCP服务器
 │   ├── sap_mcp_client.py   # MCP客户端
 │   └── http_client.py      # HTTP客户端
-├── mcpDemo/                 # MCP示例代码
-│   ├── my_server.py        # 示例服务器
-│   └── my_client.py        # 示例客户端
-└── .trae/                  # 项目文档
-    └── documents/
-        ├── SAP接口说明.md
-        ├── 数据库设计.md
-        └── 项目人员信息.md
+├── web/                      # Web管理模块
+│   ├── static/               # 静态文件（CSS、JS）
+│   ├── templates/            # HTML模板
+│   └── main.py              # Web服务器入口文件
+├── log/                      # 日志文件目录
+└── mcpDemo/                 # MCP示例代码
+    ├── my_server.py        # 示例服务器
+    └── my_client.py        # 示例客户端
 ```
 
 ## 技术栈
 
 - **Python**：>= 3.8
-- **PyQt5**：GUI框架
 - **FastMCP**：MCP协议实现
 - **httpx**：HTTP客户端
 - **pydantic**：数据验证和设置管理
+- **FastAPI**：Web管理界面框架
+- **Uvicorn**：ASGI服务器
+- **Bootstrap 5**：前端CSS框架
 
 ## 安装说明
 
@@ -148,16 +142,16 @@ MCP_SERVER_CONFIG = {
 
 ### 启动服务
 
-#### 方式一：使用GUI界面
+#### 方式一：使用Web管理界面
 
-1. 启动GUI管理界面：
+1. 启动Web管理界面：
    ```bash
-   python gui/gui.py
+   python -m uvicorn web.main:app --reload --host 0.0.0.0 --port 8080
    ```
 
-2. 在GUI界面中点击"启动服务"按钮
+2. 打开Web浏览器，导航到 `http://localhost:8080`
 
-3. 服务启动后，GUI会最小化到系统托盘，服务在后台运行
+3. 在Web界面中点击"启动服务"按钮
 
 #### 方式二：命令行启动
 
@@ -168,23 +162,28 @@ MCP_SERVER_CONFIG = {
 
 2. 服务器将在 `http://127.0.0.1:8000/mcp` 上运行
 
-### 使用GUI界面
+### 使用Web管理界面
 
-1. **服务状态标签页**：
+1. **服务管理页面**：
    - 查看服务运行状态
    - 启动/停止服务
-   - 查看实时日志
-   - 检查端口占用情况
+   - 检查服务配置
 
-2. **配置管理标签页**：
+2. **工具管理页面**：
+   - 浏览和搜索SAP MCP工具
+   - 查看工具详情和参数
+   - 通过交互式表单执行工具
+   - 查看工具执行结果
+
+3. **配置页面**：
    - 修改SAP接口配置
    - 修改MCP服务器配置
    - 保存配置更改
 
-3. **项目信息标签页**：
-   - 查看项目基本信息
-   - 查看开发人员信息
-   - 查看产品推广内容
+4. **日志页面**：
+   - 查看带过滤选项的服务日志
+   - 带确认的日志清空
+   - 实时日志更新
 
 ### 客户端连接示例
 
@@ -249,7 +248,7 @@ mypy .
 pytest
 
 # 运行测试并生成覆盖率报告
-pytest --cov=gui --cov=server --cov-report=html
+pytest --cov=server --cov-report=html
 ```
 
 ### 构建和发布
@@ -269,17 +268,16 @@ python -m twine upload dist/*
 1. **端口占用错误**：
    - 检查端口8000是否被其他程序占用
    - 修改 `config.py` 中的端口号
-   - 使用GUI的端口检测功能
 
 2. **SAP接口连接失败**：
    - 确认SAP服务器地址正确
    - 检查网络连接
    - 验证用户名和密码
 
-4. **GUI界面无响应**：
-   - 检查日志读取线程是否正常运行
-   - 重启GUI应用程序
-   - 查看日志文件获取详细错误信息
+3. **Web界面无响应**：
+   - 检查Web服务器是否正在运行
+   - 验证服务器日志中的错误
+   - 重启Web服务器应用程序
 
 ## 开发人员
 

@@ -1,0 +1,45 @@
+# Python虚拟环境
+vnev/
+.env/
+venv/
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 构建产物
+dist/
+build/
+*.egg-info/
+*.whl
+
+# 测试文件
+__pycache__/
+*.pyc
+*.pyo
+test/
+
+# 日志文件
+*.log
+log/
+
+# 配置示例文件
+config.example.py
+
+# Git文件
+.git/
+.gitignore
+
+# 其他
+.DS_Store
+*.bak
+*.tmp
+
+# 文档目录
+README/
+
+# Request目录（SAP请求文件）
+Request/

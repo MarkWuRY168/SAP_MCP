@@ -15,7 +15,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('sap_api.log', encoding='utf-8'),
+        logging.FileHandler('log/sap_api.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
