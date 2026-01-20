@@ -1,11 +1,53 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QLineEdit, QFormLayout, QTabWidget, QGroupBox,
                              QMessageBox, QComboBox)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 import os
 import sys
 import ast
 import re
+import httpx
+import json
+
+class SAPConnectionTestThread(QThread):
+    """SAP连接测试线程"""
+    finished = pyqtSignal(bool, str)
+    
+    def __init__(self, base_url, client_id, timeout):
+        super().__init__()
+        self.base_url = base_url
+        self.client_id = client_id
+        self.timeout = timeout
+    
+    def run(self):
+        """执行测试"""
+        try:
+            with httpx.Client(timeout=self.timeout, follow_redirects=True) as client:
+                response = client.get(
+                    f"{self.base_url}?sap-client={self.client_id}&id=MCP_TOOL_LIST"
+                )
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        if isinstance(data, list) and len(data) > 0:
+                            self.finished.emit(True, f"SAP接口连接成功！\n获取到 {len(data)} 个工具")
+                        else:
+                            self.finished.emit(False, "SAP接口返回数据格式错误")
+                    except Exception:
+                        self.finished.emit(True, "SAP接口连接成功！")
+                else:
+                    try:
+                        error_text = response.text[:200] if len(response.text) > 200 else response.text
+                        self.finished.emit(False, f"SAP接口连接失败，状态码: {response.status_code}\n响应内容: {error_text}")
+                    except Exception:
+                        self.finished.emit(False, f"SAP接口连接失败，状态码: {response.status_code}")
+        except httpx.TimeoutException:
+            self.finished.emit(False, "连接超时，请检查网络或增加超时时间")
+        except httpx.ConnectError:
+            self.finished.emit(False, "无法连接到SAP服务器，请检查URL和网络")
+        except Exception as e:
+            self.finished.emit(False, f"连接测试失败: {str(e)}")
 
 class ConfigManagerWidget(QWidget):
     """配置管理标签页"""
@@ -98,7 +140,18 @@ class ConfigManagerWidget(QWidget):
         self.sap_timeout_edit = QLineEdit()
         form_layout.addRow("超时时间(秒):", self.sap_timeout_edit)
         
+        # 测试按钮
+        test_button_layout = QHBoxLayout()
+        test_button_layout.addStretch()
+        
+        self.test_connection_button = QPushButton("测试SAP接口连接")
+        self.test_connection_button.setMinimumHeight(30)
+        self.test_connection_button.setStyleSheet(self.get_button_style("#F39C12"))
+        self.test_connection_button.clicked.connect(self.test_sap_connection)
+        test_button_layout.addWidget(self.test_connection_button)
+        
         layout.addLayout(form_layout)
+        layout.addLayout(test_button_layout)
         layout.addStretch()
         
         self.sap_config_widget.setLayout(layout)
@@ -219,10 +272,10 @@ class ConfigManagerWidget(QWidget):
         """填充UI配置"""
         # SAP接口配置
         sap_config = self.current_config.get("SAP_CONFIG", {})
-        self.sap_base_url_edit.setText(sap_config.get("base_url", ""))
-        self.sap_client_id_edit.setText(sap_config.get("client_id", ""))
-        self.sap_user_edit.setText(sap_config.get("sap-user", ""))
-        self.sap_password_edit.setText(sap_config.get("sap-password", ""))
+        self.sap_base_url_edit.setText(sap_config.get("base_url", "http://sap-s4d-app.example.com:8000/sap/zmcp"))
+        self.sap_client_id_edit.setText(sap_config.get("client_id", "300"))
+        self.sap_user_edit.setText(sap_config.get("sap-user", "SAP_USER"))
+        self.sap_password_edit.setText(sap_config.get("sap-password", "ExamplePassword123!!!"))
         self.sap_timeout_edit.setText(str(sap_config.get("timeout", 30)))
         
         # MCP服务器配置
@@ -338,3 +391,40 @@ class ConfigManagerWidget(QWidget):
         """应用配置（仅更新内存中的配置）"""
         if self.collect_config():
             QMessageBox.information(self, "提示", "配置已应用，需要保存才能生效")
+    
+    def test_sap_connection(self):
+        """测试SAP接口连接"""
+        try:
+            base_url = self.sap_base_url_edit.text().strip()
+            client_id = self.sap_client_id_edit.text().strip()
+            timeout = int(self.sap_timeout_edit.text().strip())
+            
+            if not base_url or not client_id:
+                QMessageBox.warning(self, "警告", "请先填写Base URL和Client ID")
+                return
+            
+            # 禁用测试按钮
+            self.test_connection_button.setEnabled(False)
+            self.test_connection_button.setText("测试中...")
+            
+            # 创建并启动测试线程
+            self.test_thread = SAPConnectionTestThread(base_url, client_id, timeout)
+            self.test_thread.finished.connect(self.on_test_finished)
+            self.test_thread.start()
+            
+        except ValueError as e:
+            QMessageBox.warning(self, "警告", f"配置值格式错误: {str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"测试失败: {str(e)}")
+    
+    def on_test_finished(self, success, message):
+        """测试完成回调"""
+        # 恢复测试按钮
+        self.test_connection_button.setEnabled(True)
+        self.test_connection_button.setText("测试SAP接口连接")
+        
+        # 显示测试结果
+        if success:
+            QMessageBox.information(self, "测试成功", message)
+        else:
+            QMessageBox.critical(self, "测试失败", message)

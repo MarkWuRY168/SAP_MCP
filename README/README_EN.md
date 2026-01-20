@@ -92,7 +92,7 @@ SAP_MCP/
 
 ### Installation Steps
 
-1. **Clone project**:
+1. **Clone the project**:
    ```bash
    git clone https://github.com/example/sap-mcp.git
    cd SAP_MCP
@@ -112,7 +112,7 @@ SAP_MCP/
    pip install -r requirements.txt
    ```
 
-4. **Configure application**:
+4. **Configure the application**:
    ```bash
    cp config.example.py config.py
    # Edit config.py and fill in actual configuration information
@@ -320,4 +320,4 @@ Thanks to all developers who contributed to this project!
 
 ---
 
-**Note**: Please do not commit configuration files containing sensitive information to the version control system.
+**Note**: Please do not commit configuration files containing sensitive information to version control system.

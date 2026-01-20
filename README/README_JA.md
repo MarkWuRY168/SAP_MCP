@@ -1,0 +1,323 @@
+# SAP MCP Server
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+## プロジェクト概要
+
+SAP MCP（Model Context Protocol）Serverは、SAPシステムの管理と制御を行うためのプラットフォームであり、ユーザーがSAPシステムと対話するための一連のツールとインターフェースを提供します。
+
+## 機能
+
+### コア機能
+
+1. **ツールリスト管理**：SAP_MCPツールリストデータを取得
+2. **ツール詳細クエリ**：ツールIDに基づいてツール詳細を取得（入出力パラメータを含む）
+3. **ツール実行**：ツール詳細に基づいてデータを認識可能な形式に変換し、SAP_MCPツールを呼び出して実行結果を取得
+
+### GUI管理インターフェース
+
+1. **サービス状態管理**：
+   - MCPサービスの実行状態を表示
+   - MCPサービスの開始/停止
+   - サービスログのリアルタイム表示
+   - ポート占有率検出と競合処理
+
+2. **設定管理**：
+   - SAPシステム設定（Base URL、Client ID、ユーザー名、パスワード、タイムアウト）
+   - MCPサーバー設定（ホスト、ポート、パス）
+   - 設定ファイルのリアルタイム保存
+
+3. **プロジェクト情報表示**：
+   - プロジェクト基本情報
+   - 開発者情報
+   - 製品プロモーションコンテンツ
+
+4. **システムトレイ機能**：
+   - システムトレイに最小化
+   - バックグラウンドでサービス実行
+   - トレイアイコンのツールチップ「SAP_MCP」
+   - 右クリックメニューでのクイック操作
+
+## プロジェクト構造
+
+```
+SAP_MCP/
+├── .gitignore                  # Git無視ファイル
+├── LICENSE                     # MITライセンス
+├── README.md                   # プロジェクトドキュメント
+├── CHANGELOG.md                # 変更ログ
+├── pyproject.toml            # プロジェクト設定ファイル
+├── requirements.txt           # プロジェクト依存関係
+├── config.py                 # 設定ファイル（バージョン管理にコミットしない）
+├── config.example.py         # 設定ファイルの例
+├── gui/                       # GUIモジュール
+│   ├── __init__.py           # パッケージ初期化ファイル
+│   ├── gui.py                # GUIエントリーファイル
+│   ├── main_window.py        # メインウィンドウ
+│   ├── service_status.py     # サービス状態管理
+│   ├── config_manager.py     # 設定管理
+│   ├── project_info.py       # プロジェクト情報表示
+│   └── utils.py             # ユーティリティ関数
+├── server/                   # サーバーモジュール
+│   ├── __init__.py          # パッケージ初期化ファイル
+│   ├── sap_mcp_server.py   # MCPサーバー
+│   ├── sap_mcp_client.py   # MCPクライアント
+│   └── http_client.py      # HTTPクライアント
+├── mcpDemo/                 # MCPサンプルコード
+│   ├── my_server.py        # サンプルサーバー
+│   └── my_client.py        # サンプルクライアント
+└── .trae/                  # プロジェクトドキュメント
+    └── documents/
+        ├── SAP接口说明.md
+        ├── 数据库设计.md
+        └── 项目人员信息.md
+```
+
+## 技術スタック
+
+- **Python**: >= 3.8
+- **PyQt5**: GUIフレームワーク
+- **FastMCP**: MCPプロトコル実装
+- **httpx**: HTTPクライアント
+- **pydantic**: データ検証と設定管理
+
+## インストール手順
+
+### システム要件
+
+- Python 3.8以上
+- SAPシステムアクセス権限
+
+### インストール手順
+
+1. **プロジェクトのクローン**:
+   ```bash
+   git clone https://github.com/example/sap-mcp.git
+   cd SAP_MCP
+   ```
+
+2. **仮想環境の作成**（推奨）:
+   ```bash
+   python -m venv venv
+   # Windows
+   venv\Scripts\activate
+   # Linux/Mac
+   source venv/bin/activate
+   ```
+
+3. **依存関係のインストール**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **アプリケーションの設定**:
+   ```bash
+   cp config.example.py config.py
+   # config.pyを編集して実際の設定情報を入力
+   ```
+
+## 設定
+
+### SAPインターフェース設定
+
+`config.py`ファイルでSAPインターフェース情報を設定します：
+
+```python
+SAP_CONFIG = {
+    "base_url": "http://sap-s4d-app.example.com:8000/sap/zmcp",
+    "client_id": "300",
+    "sap-user": "YOUR_SAP_USER",
+    "sap-password": "YOUR_SAP_PASSWORD",
+    "timeout": 30
+}
+```
+
+### MCPサーバー設定
+
+```python
+MCP_SERVER_CONFIG = {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "path": "/mcp"
+}
+```
+
+## 使用方法
+
+### サービスの開始
+
+#### 方法1：GUIインターフェースを使用
+
+1. GUI管理インターフェースを起動：
+   ```bash
+   python gui/gui.py
+   ```
+
+2. GUIインターフェースで「サービス開始」ボタンをクリック
+
+3. サービス開始後、GUIはシステムトレイに最小化され、サービスはバックグラウンドで実行されます
+
+#### 方法2：コマンドラインで開始
+
+1. MCPサーバーを起動：
+   ```bash
+   python server/sap_mcp_server.py
+   ```
+
+2. サーバーは`http://127.0.0.1:8000/mcp`で実行されます
+
+### GUIインターフェースの使用
+
+1. **サービス状態タブ**：
+   - サービス実行状態の表示
+   - サービスの開始/停止
+   - リアルタイムログの表示
+   - ポート占有率の確認
+
+2. **設定管理タブ**：
+   - SAPインターフェース設定の変更
+   - MCPサーバー設定の変更
+   - 設定変更の保存
+
+3. **プロジェクト情報タブ**：
+   - プロジェクト基本情報の表示
+   - 開発者情報の表示
+   - 製品プロモーションコンテンツの表示
+
+### クライアント接続例
+
+```python
+import asyncio
+from fastmcp import Client
+
+async def main():
+    client = Client("http://localhost:8000/mcp")
+    async with client:
+        # ツールリストを取得
+        result = await client.call_tool("get_tool_list", {})
+        print(result)
+
+asyncio.run(main())
+```
+
+### ツール呼び出し例
+
+1. **ツールリストの取得**：
+   ```python
+   result = await client.call_tool("get_tool_list", {})
+   ```
+
+2. **ツール詳細の取得**：
+   ```python
+   result = await client.call_tool("get_tool_details", {"TOOL_ID": "TOOL_ID"})
+   ```
+
+3. **ツールの使用**：
+   ```python
+   result = await client.call_tool("use_tool", {
+       "TOOL_ID": "TOOL_ID",
+       "param1": "value1",
+       "param2": "value2"
+   })
+   ```
+
+## 開発ガイド
+
+### コードスタイル
+
+プロジェクトは[PEP 8](https://www.python.org/dev/peps/pep-0008/)コードスタイルガイドラインに従います。
+
+コードのフォーマットとチェックには以下のツールを使用します：
+
+```bash
+# コードフォーマット
+black .
+
+# コードチェック
+flake8 .
+
+# タイプチェック
+mypy .
+```
+
+### テストの実行
+
+```bash
+# すべてのテストを実行
+pytest
+
+# テストを実行してカバレッジレポートを生成
+pytest --cov=gui --cov=server --cov-report=html
+```
+
+### ビルドと公開
+
+```bash
+# 配布パッケージのビルド
+python -m build
+
+# PyPIに公開
+python -m twine upload dist/*
+```
+
+## トラブルシューティング
+
+### 一般的な問題
+
+1. **ポート占有率エラー**：
+   - ポート8000が他のプログラムで使用されているか確認
+   - `config.py`のポート番号を変更
+   - GUIのポート検出機能を使用
+
+2. **SAPインターフェース接続エラー**：
+   - SAPサーバーアドレスが正しいか確認
+   - ネットワーク接続を確認
+   - ユーザー名とパスワードを確認
+
+3. **GUIインターフェースの応答なし**：
+   - ログ読み取りスレッドが正常に動作しているか確認
+   - GUIアプリケーションを再起動
+   - 詳細なエラー情報についてはログファイルを確認
+
+## 開発者
+
+- **製品デザイン**：Mark（Wu Rangyu）
+- **開発者**：Mark（Wu Rangyu）
+- **電話番号**：18685095797
+- **QQ**：121980331
+- **メール**：121980331@qq.com
+
+## ライセンス
+
+このプロジェクトは[MIT License](LICENSE)の下でライセンスされています。
+
+## 貢献
+
+貢献を歓迎します！以下の手順に従ってください：
+
+1. このプロジェクトをフォーク
+2. 機能ブランチを作成（`git checkout -b feature/AmazingFeature`）
+3. 変更をコミット（`git commit -m 'Add some AmazingFeature'`）
+4. ブランチにプッシュ（`git push origin feature/AmazingFeature`）
+5. プルリクエストを開く
+
+## 変更ログ
+
+詳細な変更ログについては、[CHANGELOG.md](CHANGELOG.md)を参照してください。
+
+## サポート
+
+質問や提案がある場合は、以下の方法でお問い合わせください：
+
+- [Issue](https://github.com/example/sap-mcp/issues)を送信
+- メール送信：121980331@qq.com
+
+## 謝辞
+
+このプロジェクトに貢献してくれたすべての開発者に感謝します！
+
+---
+
+**注意**：機密情報を含む設定ファイルをバージョン管理システムにコミットしないでください。

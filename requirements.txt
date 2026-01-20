@@ -13,3 +13,6 @@ httpx>=0.24.0
 # Utilities
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
+
+# Packaging (optional, for building EXE)
+pyinstaller>=6.0.0
