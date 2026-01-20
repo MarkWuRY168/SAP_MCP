@@ -84,7 +84,6 @@
 - PyQt5 >= 5.15.0
 - FastMCP >= 0.1.0
 - httpx >= 0.24.0
-- pymysql >= 1.1.0
 - pydantic >= 2.0.0
 - pydantic-settings >= 2.0.0
 

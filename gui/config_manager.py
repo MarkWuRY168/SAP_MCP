@@ -37,11 +37,6 @@ class ConfigManagerWidget(QWidget):
         self.init_mcp_config_ui()
         self.config_tabs.addTab(self.mcp_config_widget, "MCP服务器配置")
         
-        # 数据库配置
-        self.db_config_widget = QWidget()
-        self.init_db_config_ui()
-        self.config_tabs.addTab(self.db_config_widget, "数据库配置")
-        
         main_layout.addWidget(self.config_tabs)
         
         # 操作按钮区域
@@ -132,44 +127,6 @@ class ConfigManagerWidget(QWidget):
         layout.addStretch()
         
         self.mcp_config_widget.setLayout(layout)
-    
-    def init_db_config_ui(self):
-        """初始化数据库配置UI"""
-        layout = QVBoxLayout()
-        
-        form_layout = QFormLayout()
-        form_layout.setVerticalSpacing(15)
-        form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        
-        # host
-        self.db_host_edit = QLineEdit()
-        form_layout.addRow("主机:", self.db_host_edit)
-        
-        # port
-        self.db_port_edit = QLineEdit()
-        form_layout.addRow("端口:", self.db_port_edit)
-        
-        # user
-        self.db_user_edit = QLineEdit()
-        form_layout.addRow("用户名:", self.db_user_edit)
-        
-        # password
-        self.db_password_edit = QLineEdit()
-        self.db_password_edit.setEchoMode(QLineEdit.Password)
-        form_layout.addRow("密码:", self.db_password_edit)
-        
-        # database
-        self.db_database_edit = QLineEdit()
-        form_layout.addRow("数据库名:", self.db_database_edit)
-        
-        # charset
-        self.db_charset_edit = QLineEdit()
-        form_layout.addRow("字符集:", self.db_charset_edit)
-        
-        layout.addLayout(form_layout)
-        layout.addStretch()
-        
-        self.db_config_widget.setLayout(layout)
     
     def get_button_style(self, color):
         """获取按钮样式"""
@@ -273,15 +230,6 @@ class ConfigManagerWidget(QWidget):
         self.mcp_host_edit.setText(mcp_config.get("host", ""))
         self.mcp_port_edit.setText(str(mcp_config.get("port", 8000)))
         self.mcp_path_edit.setText(mcp_config.get("path", ""))
-        
-        # 数据库配置
-        db_config = self.current_config.get("DATABASE_CONFIG", {})
-        self.db_host_edit.setText(db_config.get("host", ""))
-        self.db_port_edit.setText(str(db_config.get("port", 3306)))
-        self.db_user_edit.setText(db_config.get("user", ""))
-        self.db_password_edit.setText(db_config.get("password", ""))
-        self.db_database_edit.setText(db_config.get("database", ""))
-        self.db_charset_edit.setText(db_config.get("charset", ""))
     
     def collect_config(self):
         """从UI收集配置"""
@@ -303,17 +251,6 @@ class ConfigManagerWidget(QWidget):
                 "path": self.mcp_path_edit.text().strip()
             }
             self.current_config["MCP_SERVER_CONFIG"] = mcp_config
-            
-            # 数据库配置
-            db_config = {
-                "host": self.db_host_edit.text().strip(),
-                "port": int(self.db_port_edit.text().strip()),
-                "user": self.db_user_edit.text().strip(),
-                "password": self.db_password_edit.text().strip(),
-                "database": self.db_database_edit.text().strip(),
-                "charset": self.db_charset_edit.text().strip()
-            }
-            self.current_config["DATABASE_CONFIG"] = db_config
             
             return True
             
@@ -353,15 +290,6 @@ class ConfigManagerWidget(QWidget):
             new_content = re.sub(
                 r'MCP_SERVER_CONFIG\s*=\s*\{[\s\S]*?\n\}',
                 f'MCP_SERVER_CONFIG = {mcp_config_str}',
-                new_content
-            )
-            
-            # 替换DATABASE_CONFIG
-            db_config = self.current_config.get("DATABASE_CONFIG", {})
-            db_config_str = self.format_config_dict(db_config)
-            new_content = re.sub(
-                r'DATABASE_CONFIG\s*=\s*\{[\s\S]*?\n\}',
-                f'DATABASE_CONFIG = {db_config_str}',
                 new_content
             )
             

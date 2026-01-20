@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastmcp import FastMCP
 from http_client import SAPHttpClient
 from config import MCP_SERVER_CONFIG
-from db_handler import get_db_handler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,7 +22,9 @@ JSONRPC_VERSION = "2.0"
 
 mcp = FastMCP("SAP_MCP_Server")
 http_client = SAPHttpClient()
-db = get_db_handler()
+
+# 工具参数格式缓存（内存存储，无需数据库）
+TOOL_PARAMS_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 def handle_error(error: Exception, context: str = "") -> Dict[str, Any]:
@@ -66,32 +67,12 @@ def format_jsonrpc_result(result: Any) -> Dict[str, Any]:
         }
 
 
-async def get_tool_description(tool_id: str) -> str:
-    """从工具列表获取工具描述
-    
-    Args:
-        tool_id: 工具ID
-        
-    Returns:
-        工具描述文本，如果获取失败返回空字符串
-    """
-    try:
-        tool_list_result = await http_client.get(params={"id": API_ENDPOINTS["TOOL_LIST"]})
-        if isinstance(tool_list_result, list):
-            for tool in tool_list_result:
-                if tool.get("TOOL_ID") == tool_id:
-                    return tool.get("DESCRIPTION", "")
-    except Exception as e:
-        logger.warning(f"获取工具描述失败: {e}")
-    return ""
-
-
 def convert_user_params_to_sap_format(user_params: Dict[str, Any], param_format: Dict[str, Any]) -> Dict[str, Any]:
     """将用户传入的参数转换为SAP接口要求的格式
     
     Args:
         user_params: 用户传入的原始参数（扁平格式）
-        param_format: 从数据库获取的参数格式模板（嵌套格式）
+        param_format: 从内存缓存获取的参数格式模板（嵌套格式）
         
     Returns:
         转换后的符合SAP接口格式的参数
@@ -123,23 +104,15 @@ def convert_user_params_to_sap_format(user_params: Dict[str, Any], param_format:
 
 
 async def get_tool_params_format(tool_id: str) -> Optional[Dict[str, Any]]:
-    """从数据库获取工具参数格式
+    """从内存缓存获取工具参数格式
     
     Args:
         tool_id: 工具ID
         
     Returns:
-        工具参数格式字典，如果获取失败返回None
+        工具参数格式字典，如果不存在返回None
     """
-    try:
-        tool_info = db.get_tool(tool_id)
-        if tool_info and tool_info.get("parameters"):
-            import json
-            return json.loads(tool_info["parameters"])
-        return None
-    except Exception as e:
-        logger.error(f"从数据库获取工具参数格式失败: {e}")
-        return None
+    return TOOL_PARAMS_CACHE.get(tool_id)
 
 
 @mcp.tool(name="get_tool_list")
@@ -165,7 +138,7 @@ async def get_tool_list() -> Dict[str, Any]:
 
 @mcp.tool(name="get_tool_details")
 async def get_tool_details(json_data: Dict[str, Any]) -> Dict[str, Any]:
-    """根据工具信息获取工具使用说明，并保存到数据库
+    """根据工具信息获取工具使用说明，并保存到内存缓存
     
     Args:
         json_data: JSON格式数据，必须包含TOOL_ID字段
@@ -190,17 +163,9 @@ async def get_tool_details(json_data: Dict[str, Any]) -> Dict[str, Any]:
         )
         
         if result and isinstance(result, dict):
-            description = await get_tool_description(tool_id)
-            
-            logger.info(f"准备保存工具到数据库: {tool_id}, 描述: {description}")
-            try:
-                save_result = db.save_tool(result, description)
-                if save_result:
-                    logger.info(f"工具详情已成功保存到数据库: {tool_id}")
-                else:
-                    logger.warning(f"工具详情保存到数据库失败: {tool_id}")
-            except Exception as e:
-                logger.error(f"保存工具详情到数据库时发生异常: {e}", exc_info=True)
+            # 将工具参数格式保存到内存缓存
+            TOOL_PARAMS_CACHE[tool_id] = result.get("PARAM", {})
+            logger.info(f"工具参数格式已保存到内存缓存: {tool_id}")
         
         return result
     except Exception as e:
@@ -233,15 +198,8 @@ async def use_tool(json_data: Dict[str, Any]) -> Dict[str, Any]:
         
         logger.info(f"使用工具: {tool_id}")
         
-        # 从数据库获取工具参数格式
+        # 从内存缓存获取工具参数格式
         param_format = await get_tool_params_format(tool_id)
-        
-        if param_format is None:
-            logger.warning(f"工具 {tool_id} 未在数据库中找到，请先调用 get_tool_details 获取工具详情")
-            return handle_error(
-                ValueError(f"工具 {tool_id} 未在数据库中找到，请先调用 get_tool_details 获取工具详情"),
-                "使用工具"
-            )
         
         # 提取用户传入的参数（除了 TOOL_ID 之外的所有字段）
         user_params = {
@@ -250,8 +208,18 @@ async def use_tool(json_data: Dict[str, Any]) -> Dict[str, Any]:
             if key != "TOOL_ID"
         }
         
-        # 将用户参数转换为SAP接口要求的格式
-        sap_params = convert_user_params_to_sap_format(user_params, param_format)
+        # 如果缓存中没有参数格式，尝试直接使用用户参数
+        if param_format is None:
+            logger.warning(f"工具 {tool_id} 未在缓存中找到，尝试直接使用用户参数")
+            # 直接使用用户参数，不进行格式转换
+            sap_params = {
+                "IMPORT": {
+                    "IMPORTING_DATA": user_params
+                }
+            }
+        else:
+            # 将用户参数转换为SAP接口要求的格式
+            sap_params = convert_user_params_to_sap_format(user_params, param_format)
         
         # 构造SAP请求数据
         sap_request_data = {

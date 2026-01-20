@@ -43,7 +43,7 @@ class ProjectInfoWidget(QWidget):
         tech_stack_text = QTextEdit()
         tech_stack_text.setReadOnly(True)
         tech_stack_text.setFixedHeight(80)
-        tech_stack_text.setPlainText("- Python：主要开发语言\n- FastMCP：用于创建MCP服务器\n- httpx：用于发送HTTP请求\n- pymysql：用于数据库操作\n- PyQt5：用于GUI界面开发")
+        tech_stack_text.setPlainText("- Python：主要开发语言\n- FastMCP：用于创建MCP服务器\n- httpx：用于发送HTTP请求\n- PyQt5：用于GUI界面开发")
         tech_stack_text.setStyleSheet(self.get_text_edit_style())
         basic_info_layout.addWidget(tech_stack_text, 2, 1)
         

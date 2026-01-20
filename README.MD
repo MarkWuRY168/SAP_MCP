@@ -27,7 +27,6 @@ SAP MCP（Model Context Protocol）Server是一个用于管理和控制SAP系统
 2. **配置管理**：
    - SAP系统配置（Base URL、Client ID、用户名、密码、超时时间）
    - MCP服务器配置（主机、端口、路径）
-   - 数据库配置（主机、端口、用户名、密码、数据库名、字符集）
    - 配置文件实时保存
 
 3. **项目信息展示**：
@@ -65,10 +64,7 @@ SAP_MCP/
 │   ├── __init__.py          # 包初始化文件
 │   ├── sap_mcp_server.py   # MCP服务器
 │   ├── sap_mcp_client.py   # MCP客户端
-│   ├── http_client.py      # HTTP客户端
-│   ├── db_handler.py       # 数据库处理器
-│   ├── check_database.py   # 数据库检查工具
-│   └── check_table_structure.py  # 表结构检查工具
+│   └── http_client.py      # HTTP客户端
 ├── mcpDemo/                 # MCP示例代码
 │   ├── my_server.py        # 示例服务器
 │   └── my_client.py        # 示例客户端
@@ -85,7 +81,6 @@ SAP_MCP/
 - **PyQt5**：GUI框架
 - **FastMCP**：MCP协议实现
 - **httpx**：HTTP客户端
-- **pymysql**：MySQL数据库驱动
 - **pydantic**：数据验证和设置管理
 
 ## 安装说明
@@ -93,7 +88,6 @@ SAP_MCP/
 ### 环境要求
 
 - Python 3.8 或更高版本
-- MySQL 5.7 或更高版本
 - SAP系统访问权限
 
 ### 安装步骤
@@ -118,11 +112,7 @@ SAP_MCP/
    pip install -r requirements.txt
    ```
 
-4. **配置数据库**：
-   - 创建MySQL数据库：`MCP_SERVER`
-   - 运行数据库初始化脚本（如果需要）
-
-5. **配置应用**：
+4. **配置应用**：
    ```bash
    cp config.example.py config.py
    # 编辑 config.py，填入实际配置信息
@@ -151,19 +141,6 @@ MCP_SERVER_CONFIG = {
     "host": "127.0.0.1",
     "port": 8000,
     "path": "/mcp"
-}
-```
-
-### 数据库配置
-
-```python
-DATABASE_CONFIG = {
-    "host": "127.0.0.1",
-    "port": 3306,
-    "user": "root",
-    "password": "YOUR_DB_PASSWORD",
-    "database": "MCP_SERVER",
-    "charset": "utf8mb4"
 }
 ```
 
@@ -202,7 +179,6 @@ DATABASE_CONFIG = {
 2. **配置管理标签页**：
    - 修改SAP接口配置
    - 修改MCP服务器配置
-   - 修改数据库配置
    - 保存配置更改
 
 3. **项目信息标签页**：
@@ -295,12 +271,7 @@ python -m twine upload dist/*
    - 修改 `config.py` 中的端口号
    - 使用GUI的端口检测功能
 
-2. **数据库连接失败**：
-   - 确认MySQL服务正在运行
-   - 检查数据库配置是否正确
-   - 确认数据库用户权限
-
-3. **SAP接口连接失败**：
+2. **SAP接口连接失败**：
    - 确认SAP服务器地址正确
    - 检查网络连接
    - 验证用户名和密码
