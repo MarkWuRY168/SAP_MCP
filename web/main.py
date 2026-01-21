@@ -180,6 +180,32 @@ async def api_save_config(config_data: dict):
     except Exception as e:
         return await handle_error(e, "保存配置失败")
 
+@app.post("/api/test-api", tags=["配置管理"])
+async def api_test_api():
+    """测试SAP接口连接"""
+    try:
+        logger.info("测试SAP接口连接")
+        
+        # 使用当前配置创建新的HTTP客户端实例
+        test_client = SAPHttpClient()
+        
+        # 调用id=MCP_TOOL_LIST的接口
+        result = await test_client.get(params={"id": "MCP_TOOL_LIST"})
+        
+        logger.info(f"SAP接口测试成功: {json.dumps(result, ensure_ascii=False)}")
+        return {
+            "message": "SAP接口测试成功",
+            "success": True,
+            "result": result
+        }
+    except Exception as e:
+        logger.error(f"SAP接口测试失败: {str(e)}")
+        return {
+            "message": f"SAP接口测试失败: {str(e)}",
+            "success": False,
+            "error": str(e)
+        }
+
 @app.get("/api/service/status", tags=["服务管理"])
 async def api_get_service_status():
     """获取服务状态"""

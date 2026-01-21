@@ -33,14 +33,108 @@ The project leverages AI technology to publish SAP system tools as MCP services,
    - Clear logs with confirmation
    - Real-time log updates
 
-## Docker Deployment
+## Deployment
 
 ### Prerequisites
+
+- Python 3.8 or higher
+- Git (optional, for cloning repository)
+- Network connection (for installing dependencies)
+
+### 1. Manual Deployment
+
+#### 1.1 Get Project Code
+
+**Method 1: Clone from Git repository**
+```bash
+git clone https://github.com/MarkWuRY168/SAP_MCP
+cd SAP_MCP
+```
+
+**Method 2: Direct file copy**
+- Copy the entire project folder to your server
+
+#### 1.2 Create Virtual Environment
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
+```
+
+#### 1.3 Install Dependencies
+
+```bash
+# Upgrade pip
+python -m pip install --upgrade pip
+
+# Install project dependencies
+pip install -r requirements.txt
+
+# Install project
+pip install -e .
+```
+
+#### 1.4 Configure Project
+
+```bash
+# Copy configuration example file
+cp config.example.py config.py
+
+# Edit configuration file (modify according to your environment)
+# You can use any text editor, e.g.
+# notepad config.py      # Windows
+# vim config.py          # Linux/Mac
+```
+
+**Configuration file example:**
+```python
+# SAP interface configuration
+SAP_CONFIG = {
+    "base_url": "http://your-sap-server:port/sap/zmcp",
+    "client_id": "your-client-id",
+    "sap-user": "your-sap-username",
+    "sap-password": "your-sap-password",
+    "timeout": 30
+}
+
+# MCP server configuration
+MCP_SERVER_CONFIG = {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "path": "/mcp"
+}
+```
+
+#### 1.5 Start Services
+
+##### Method 1: Start MCP Server Only
+
+```bash
+# Start MCP server
+python server/sap_mcp_server.py
+```
+
+##### Method 2: Start Web Management Interface
+
+```bash
+# Start Web management interface
+python -m uvicorn web.main:app --host 0.0.0.0 --port 8080
+```
+
+### 2. Docker Deployment
+
+#### 2.1 Prerequisites
 
 - Docker installed on your system
 - Docker Compose installed on your system
 
-### Build and Run with Docker Compose
+#### 2.2 Build and Run with Docker Compose
 
 ```bash
 # Build and run all services
@@ -59,31 +153,138 @@ docker-compose down
 docker-compose down -v
 ```
 
-### Services
+#### 2.3 Offline Docker Deployment (For Network-Restricted Environments)
 
-- **sap-mcp-server**: SAP MCP Server running on port 8000
-- **sap-mcp-web**: Web management interface running on port 8080
+1. **Download images in a network-accessible environment:**
+   ```bash
+   # Pull Python base image
+   docker pull python:3.10-slim
+   
+   # Save image to local file
+   docker save python:3.10-slim -o python-3.10-slim.tar
+   ```
 
-### Access the Application
+2. **Transfer image file to target server** (using USB or other methods)
 
-1. **Web Management Interface**: Open your browser and navigate to `http://localhost:8080`
-2. **MCP Server**: The server is available at `http://localhost:8000/mcp` for client connections
+3. **Load image on target server:**
+   ```bash
+   docker load -i python-3.10-slim.tar
+   ```
 
-### Configuration
+4. **Build and run:**
+   ```bash
+   # Build project image
+   docker build -t sap-mcp .
+   
+   # Run container
+   docker run -d -p 8000:8000 -p 8080:8080 sap-mcp
+   ```
 
-The `config.py` file is mounted as a volume in both containers, so you can modify it on the host machine and the changes will be reflected in the containers.
+### 4. Important Notes for Docker Deployment
 
-### Logs
+#### 4.1 Host Configuration for Docker
 
-Logs are stored in a Docker volume named `log_volume` and can be accessed from within the containers at `/app/log/sap_api.log`.
+When running in Docker containers, it's crucial to configure the MCP server to listen on all network interfaces (0.0.0.0) instead of just localhost (127.0.0.1). This is already set correctly in the default configuration file, but if you modify it, ensure:
 
-### Customization
+```python
+# MCP server configuration
+MCP_SERVER_CONFIG = {
+    "host": "0.0.0.0",  # Important: Must be 0.0.0.0 for Docker deployment
+    "port": 8000,
+    "path": "/mcp"
+}
+```
 
-You can customize the Docker configuration by modifying the following files:
+If you set `host` to `127.0.0.1`, the MCP service will only be accessible within the container, not from outside.
 
-- `Dockerfile`: For customizing the base image and build process
-- `docker-compose.yml`: For customizing services, ports, volumes, and environment variables
-- `.dockerignore`: For excluding files from the Docker build context
+#### 4.2 Port Mapping
+
+Ensure that both the Web interface port (8080) and MCP service port (8000) are correctly mapped in your Docker configuration:
+
+```yaml
+# In docker-compose.yml
+ports:
+  - "8080:8080"  # Web management interface
+  - "8000:8000"  # MCP service
+```
+
+### 5. Access the Application
+
+- **Web Management Interface**: Open your browser and navigate to `http://server-ip:8080`
+- **MCP Server**: The server is available at `http://server-ip:8000/mcp` for client connections
+
+### 6. Common Issues
+
+#### 6.1 Port Conflict
+
+If ports are occupied, modify the port numbers in `config.py`:
+
+```python
+# Modify MCP server port
+MCP_SERVER_CONFIG = {
+    "host": "0.0.0.0",
+    "port": 8001,  # Change to another port
+    "path": "/mcp"
+}
+```
+
+#### 6.2 Dependency Installation Failure
+
+If dependency installation fails, try using a domestic mirror source:
+
+```bash
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+```
+
+#### 6.3 Service Startup Failure
+
+Check the log file `log/sap_api.log` for detailed error information:
+
+```bash
+# View log file
+cat log/sap_api.log
+```
+
+#### 6.4 MCP Service Not Accessible from Outside Docker Container
+
+**Issue**: After starting the MCP service through the Web management interface, the service is not accessible from outside the Docker container.
+
+**Solution**: 
+1. Ensure the MCP service is configured to listen on all network interfaces (`0.0.0.0`):
+   ```python
+   # In config.py
+   MCP_SERVER_CONFIG = {
+       "host": "0.0.0.0",  # Must be 0.0.0.0 for Docker deployment
+       "port": 8000,
+       "path": "/mcp"
+   }
+   ```
+2. Ensure the port is correctly mapped in `docker-compose.yml`:
+   ```yaml
+   # In docker-compose.yml
+   ports:
+     - "8000:8000"  # Map MCP service port
+   ```
+3. Restart the Docker service after making changes
+
+**Root Cause**: If the service listens only on `127.0.0.1`, it can only be accessed within the container, not from outside.
+
+### 7. Service Management
+
+#### 7.1 Stop Services
+
+- **Press Ctrl+C** to stop running services
+- Or use `kill` command to terminate processes
+
+#### 7.2 Restart Services
+
+Simply re-execute the startup commands.
+
+### 8. Monitoring and Maintenance
+
+- Regularly check log files: `log/sap_api.log`
+- Periodically update dependencies: `pip install -r requirements.txt --upgrade`
+- Regularly back up the configuration file: `config.py`
 
 ## Developers
 

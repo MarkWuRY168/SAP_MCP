@@ -249,7 +249,11 @@ async def use_tool(json_data: Dict[str, Any]) -> Dict[str, Any]:
         return handle_error(e, "使用工具失败")
 
 
-if __name__ == "__main__":
+def main():
+    """主函数，用于启动MCP服务器
+    
+    这个函数被sap-mcp-server命令调用，用于启动MCP服务器。
+    """
     logger.info("启动MCP服务器")
     mcp.run(
         transport="http",
@@ -257,3 +261,6 @@ if __name__ == "__main__":
         port=MCP_SERVER_CONFIG["port"],
         path=MCP_SERVER_CONFIG["path"]
     )
+
+if __name__ == "__main__":
+    main()
