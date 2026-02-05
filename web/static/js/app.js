@@ -52,8 +52,14 @@ function renderToolList(tools) {
     
     toolList.innerHTML = tools.map(tool => `
         <a href="#" class="list-group-item list-group-item-action" data-tool-id="${tool.TOOL_ID}">
-            <h6 class="mb-1">${tool.TOOL_ID}</h6>
-            <small class="text-muted">${tool.DESCRIPTION || '无描述'}</small>
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h6 class="mb-1 fw-bold">${tool.TOOL_ID}</h6>
+                    <p class="mb-1 text-muted small">${tool.DESCRIPTION || '无描述'}</p>
+                    ${tool.TOOL_NAME ? `<p class="mb-0 text-primary small">${tool.TOOL_NAME}</p>` : ''}
+                </div>
+                <span class="badge bg-primary">${tool.TOOL_ID}</span>
+            </div>
         </a>
     `).join('');
     
@@ -113,31 +119,6 @@ function renderToolDetails(details) {
             <h6>描述</h6>
             <p>${details.DESCRIPTION || '无描述信息'}</p>
         </div>
-        
-        <div class="mb-4">
-            <h6>参数说明</h6>
-            <p class="text-muted">请在下方表单中配置工具参数</p>
-        </div>
-        
-        <div>
-            <h6>工具信息</h6>
-            <table class="table table-sm table-bordered">
-                <tbody>
-                    <tr>
-                        <th>工具ID</th>
-                        <td>${details.TOOL_ID}</td>
-                    </tr>
-                    <tr>
-                        <th>工具名称</th>
-                        <td>${details.TOOL_NAME || '-'}</td>
-                    </tr>
-                    <tr>
-                        <th>接口版本</th>
-                        <td>${details.VERSION || '-'}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
     `;
 }
 
@@ -158,40 +139,109 @@ function generateToolForm(paramSchema) {
     }
     
     // 递归生成表单字段
-    function generateFields(schema, parentPath = '') {
+    function generateFields(schema, parentPath = '', parentFullPath = '') {
         let html = '';
         
+        // 遍历所有字段，生成表单
         for (const [key, value] of Object.entries(schema)) {
+            // 直接使用字段名作为标签，不使用name属性
+            // 无论value是什么结构，都使用key作为字段标签
+            let fieldLabel = key;
+            let fieldType = '';
+            
             const fieldName = parentPath ? `${parentPath}[${key}]` : key;
             
+            // 检查当前值是否是对象，如果是，检查是否包含type属性
             if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                // 嵌套对象
+                // 提取type属性（如果存在），忽略name属性
+                let typeValue = value.type || '';
+                
+                // 保存type值
+                fieldType = typeValue;
+                
+                // 生成卡片
+                const cardId = `card-${Math.random().toString(36).substr(2, 9)}`;
+                
+                // 构建卡片标题，只显示字段名和type，不使用name属性
+                let cardTitle = key;
+                if (fieldType) {
+                    cardTitle += ` (${fieldType})`;
+                }
+                
                 html += `
-                    <div class="mb-4">
-                        <h6 class="text-primary">${key}</h6>
-                        <div class="ps-3 border-start border-primary">
-                            ${generateFields(value, fieldName)}
+                    <div class="card mb-3">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center cursor-pointer" onclick="toggleCard('${cardId}')">
+                            <h6 class="mb-0 text-primary">
+                                <i id="icon-${cardId}" class="bi bi-caret-down-fill"></i> ${cardTitle}
+                            </h6>
+                            <span class="text-muted" style="font-size: 0.85rem;">
+                                <i class="bi bi-chevron-up"></i>
+                            </span>
+                        </div>
+                        <div id="${cardId}" class="card-body p-3">
+                            ${generateFields(value, fieldName, key)}
                         </div>
                     </div>
                 `;
             } else if (Array.isArray(value)) {
-                // 数组（暂时显示为文本框）
+                // 数组字段
                 html += `
                     <div class="mb-3">
-                        <label for="${fieldName}" class="form-label">${key} (数组)</label>
+                        <label for="${fieldName}" class="form-label fw-medium">${fieldLabel} (数组)</label>
+                        ${fieldType ? `<div class="form-text mb-1">类型: ${fieldType}</div>` : ''}
                         <textarea class="form-control" id="${fieldName}" name="${fieldName}" rows="3" placeholder="请输入JSON格式的数组"></textarea>
                         <div class="form-text">例如: ["value1", "value2"]</div>
                     </div>
                 `;
             } else {
-                // 基本类型
-                html += `
-                    <div class="mb-3">
-                        <label for="${fieldName}" class="form-label">${key}</label>
-                        <input type="text" class="form-control" id="${fieldName}" name="${fieldName}" placeholder="${typeof value === 'string' ? value : JSON.stringify(value)}" value="${typeof value === 'string' ? value : ''}">
-                        <div class="form-text">类型: ${typeof value}, 默认值: ${JSON.stringify(value)}</div>
-                    </div>
-                `;
+                // 基本类型字段
+                // 检查是否包含type属性（如果是对象值的话）
+                // 注意：基本类型字段可能直接包含type属性，而不是嵌套对象
+                let actualValue = value;
+                if (value && typeof value === 'object') {
+                    fieldType = value.type || '';
+                    // 如果value是对象，尝试获取其实际值
+                    if (value.value !== undefined) {
+                        actualValue = value.value;
+                    }
+                    // 确保不使用name属性作为字段标签
+                    // 无论value是什么结构，都使用key作为字段标签
+                    // 显式不使用value.name作为字段标签
+                }
+                
+                // 尝试自动判断输入类型
+                let inputType = 'text';
+                if (typeof actualValue === 'number') {
+                    inputType = 'number';
+                } else if (typeof actualValue === 'boolean') {
+                    inputType = 'checkbox';
+                }
+                
+                // 构建类型描述
+                let typeDescription = `类型: ${typeof actualValue}`;
+                if (fieldType) {
+                    typeDescription += `, TYPE: ${fieldType}`;
+                }
+                
+                if (inputType === 'checkbox') {
+                    // 复选框类型
+                    html += `
+                        <div class="mb-3 form-check">
+                            <input type="${inputType}" class="form-check-input" id="${fieldName}" name="${fieldName}" ${actualValue ? 'checked' : ''}>
+                            <label class="form-check-label fw-medium" for="${fieldName}">${fieldLabel}</label>
+                            <div class="form-text">${typeDescription}</div>
+                        </div>
+                    `;
+                } else {
+                    // 文本、数字等类型
+                    html += `
+                        <div class="mb-3">
+                            <label for="${fieldName}" class="form-label fw-medium">${fieldLabel}</label>
+                            <input type="${inputType}" class="form-control" id="${fieldName}" name="${fieldName}" placeholder="${typeof actualValue === 'string' ? actualValue : JSON.stringify(actualValue)}" value="${typeof actualValue === 'string' ? actualValue : actualValue}" ${inputType === 'number' ? 'step="any"' : ''}>
+                            <div class="form-text">${typeDescription}</div>
+                        </div>
+                    `;
+                }
             }
         }
         
@@ -254,13 +304,81 @@ function parseValue(value) {
     }
 }
 
+// 删除对象中的默认值
+function removeDefaultValues(obj) {
+    if (typeof obj !== 'object' || obj === null) {
+        return obj;
+    }
+    
+    // 处理数组
+    if (Array.isArray(obj)) {
+        return obj.map(item => removeDefaultValues(item));
+    }
+    
+    // 处理对象
+    const result = {};
+    for (const [key, value] of Object.entries(obj)) {
+        // 递归处理嵌套对象
+        const processedValue = removeDefaultValues(value);
+        
+        // 删除默认值
+        if (processedValue !== undefined && processedValue !== null && processedValue !== '' && 
+            !(Array.isArray(processedValue) && processedValue.length === 0) &&
+            !(typeof processedValue === 'object' && Object.keys(processedValue).length === 0)) {
+            result[key] = processedValue;
+        }
+    }
+    
+    return result;
+}
+
+// 格式化并高亮JSON结果
+function formatAndHighlightJSON(jsonString) {
+    try {
+        const obj = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
+        
+        // 删除默认值
+        const simplifiedObj = removeDefaultValues(obj);
+        
+        // 格式化JSON
+        const formatted = JSON.stringify(simplifiedObj, null, 2);
+        
+        // 高亮处理：为TYPE字段添加特殊样式
+        return formatted.replace(/"TYPE"\s*:\s*"([^"]+)"/g, '<span class="json-type-highlight">"TYPE": "$1"</span>');
+    } catch {
+        return jsonString;
+    }
+}
+
 // 显示执行结果
 function showExecutionResult(result, isError = false) {
     const executionResult = document.getElementById('executionResult');
     const resultOutput = document.getElementById('resultOutput');
+    const resultTime = document.getElementById('resultTime');
+    const resultStatus = document.getElementById('resultStatus');
     
-    resultOutput.textContent = result;
-    resultOutput.className = isError ? 'bg-danger text-white p-3 rounded' : 'bg-light p-3 rounded';
+    // 设置时间戳
+    const now = new Date();
+    resultTime.textContent = `执行时间: ${now.toLocaleString('zh-CN')}`;
+    
+    // 设置状态徽章
+    resultStatus.textContent = isError ? '失败' : '成功';
+    resultStatus.className = `badge ${isError ? 'bg-danger' : 'bg-success'}`;
+    
+    // 格式化并高亮JSON结果
+    const formattedResult = formatAndHighlightJSON(result);
+    
+    // 如果是有效的JSON，使用HTML显示，否则使用文本显示
+    if (typeof result === 'string' && result.trim().startsWith('{') && result.trim().endsWith('}')) {
+        resultOutput.innerHTML = formattedResult;
+        resultOutput.className = isError ? 'bg-danger text-white p-3 rounded pre-wrap' : 'bg-light p-3 rounded pre-wrap';
+        resultOutput.style.whiteSpace = 'pre-wrap';
+        resultOutput.style.wordBreak = 'break-word';
+    } else {
+        resultOutput.textContent = result;
+        resultOutput.className = isError ? 'bg-danger text-white p-3 rounded' : 'bg-light p-3 rounded';
+    }
+    
     executionResult.style.display = 'block';
     
     // 滚动到结果区域
@@ -533,11 +651,81 @@ function bindEventListeners() {
         hideExecutionResult();
     });
     
+    // 参数折叠/展开按钮
+    document.getElementById('toggleParamsBtn').addEventListener('click', function() {
+        const paramsContainer = document.getElementById('paramsContainer');
+        const button = this;
+        const icon = button.querySelector('i');
+        const text = button.textContent.trim().replace('隐藏参数', '').replace('显示参数', '');
+        
+        if (paramsContainer.style.display === 'none') {
+            paramsContainer.style.display = 'block';
+            button.innerHTML = `<i class="bi bi-chevron-down"></i> 隐藏参数`;
+        } else {
+            paramsContainer.style.display = 'none';
+            button.innerHTML = `<i class="bi bi-chevron-right"></i> 显示参数`;
+        }
+    });
+    
+    // 复制结果按钮
+    document.getElementById('copyResultBtn').addEventListener('click', function() {
+        const resultOutput = document.getElementById('resultOutput');
+        navigator.clipboard.writeText(resultOutput.textContent)
+            .then(() => {
+                const originalText = this.textContent;
+                this.textContent = '已复制';
+                setTimeout(() => {
+                    this.innerHTML = `<i class="bi bi-clipboard"></i> 复制`;
+                }, 1500);
+            })
+            .catch(err => {
+                console.error('复制失败:', err);
+            });
+    });
+    
+    // 下载结果按钮
+    document.getElementById('downloadResultBtn').addEventListener('click', function() {
+        const resultOutput = document.getElementById('resultOutput');
+        const now = new Date();
+        const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
+        const filename = `tool-result-${timestamp}.txt`;
+        
+        const blob = new Blob([resultOutput.textContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+    
+    // 关闭结果按钮
+    document.getElementById('closeResultBtn').addEventListener('click', hideExecutionResult);
+    
     // 配置表单保存按钮
     document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
     
     // 配置表单重置按钮
     document.getElementById('resetConfigBtn').addEventListener('click', renderConfigForm);
+    
+    // 接口测试按钮
+    document.getElementById('testApiBtn').addEventListener('click', testApi);
+    
+    // 密码显示/隐藏切换按钮
+    document.getElementById('togglePassword')?.addEventListener('click', function() {
+        const passwordInput = document.getElementById('sapPassword');
+        const icon = this;
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.textContent = '🙈';
+        } else {
+            passwordInput.type = 'password';
+            icon.textContent = '👁️';
+        }
+    });
     
     // 服务管理按钮
     document.getElementById('startServiceBtn').addEventListener('click', startService);
@@ -618,6 +806,22 @@ function showConfigMessage(message, type = 'info') {
     }, 3000);
 }
 
+// 折叠/展开卡片
+function toggleCard(cardId) {
+    const cardBody = document.getElementById(cardId);
+    const icon = document.getElementById(`icon-${cardId}`);
+    
+    if (cardBody.style.display === 'none') {
+        // 展开卡片
+        cardBody.style.display = 'block';
+        icon.className = 'bi bi-caret-down-fill';
+    } else {
+        // 折叠卡片
+        cardBody.style.display = 'none';
+        icon.className = 'bi bi-caret-right-fill';
+    }
+}
+
 // 显示错误信息
 function displayError(message) {
     const toolList = document.getElementById('toolList');
@@ -636,6 +840,44 @@ function displayError(message) {
 function hideExecutionResult() {
     const executionResult = document.getElementById('executionResult');
     executionResult.style.display = 'none';
+}
+
+// 测试API连接
+async function testApi() {
+    const testBtn = document.getElementById('testApiBtn');
+    const apiStatus = document.getElementById('apiStatus');
+    const originalText = testBtn.textContent;
+    
+    try {
+        // 禁用按钮，防止重复点击
+        testBtn.disabled = true;
+        testBtn.textContent = '测试中...';
+        
+        // 更新状态显示
+        apiStatus.innerHTML = '<span class="text-warning">测试中...</span>';
+        
+        // 调用API测试接口
+        const response = await axios.post('/api/test-api');
+        const result = response.data;
+        
+        if (result.success) {
+            // 测试成功
+            apiStatus.innerHTML = '<span class="text-success">测试成功</span>';
+            showConfigMessage('接口测试成功', 'success');
+        } else {
+            // 测试失败
+            apiStatus.innerHTML = '<span class="text-danger">测试失败</span>';
+            showConfigMessage('接口测试失败: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        // 请求失败
+        apiStatus.innerHTML = '<span class="text-danger">请求失败</span>';
+        showConfigMessage('接口测试失败: ' + (error.response?.data?.message || error.message), 'danger');
+    } finally {
+        // 恢复按钮状态
+        testBtn.disabled = false;
+        testBtn.textContent = originalText;
+    }
 }
 
 // 格式化JSON

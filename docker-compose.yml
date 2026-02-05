@@ -1,21 +1,6 @@
 version: '3.8'
 
 services:
-  # SAP MCP Server 服务
-  sap-mcp-server:
-    build:
-      context: .
-    container_name: sap-mcp-server
-    ports:
-      - "8000:8000"  # 映射MCP服务器端口
-    volumes:
-      - ./config.py:/app/config.py  # 挂载配置文件
-      - log_volume:/app/log  # 挂载日志目录
-    restart: unless-stopped
-    environment:
-      - PYTHONUNBUFFERED=1
-    command: ["sap-mcp-server"]
-
   # SAP MCP Web 管理界面服务
   sap-mcp-web:
     build:
@@ -23,6 +8,7 @@ services:
     container_name: sap-mcp-web
     ports:
       - "8080:8080"  # 映射Web管理界面端口
+      - "8000:8000"  # 映射MCP服务端口
     volumes:
       - ./config.py:/app/config.py  # 挂载配置文件
       - log_volume:/app/log  # 挂载日志目录
@@ -30,8 +16,6 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     command: ["python", "-m", "uvicorn", "web.main:app", "--host", "0.0.0.0", "--port", "8080"]
-    depends_on:
-      - sap-mcp-server
 
 # 用于存储配置和日志的卷
 volumes:

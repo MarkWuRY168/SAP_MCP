@@ -11,18 +11,16 @@ ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 # 设置工作目录
 WORKDIR /app
 
-# 安装Python和系统依赖
+# 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.10 \
-    python3-pip \
-    python3.10-dev \
     gcc \
     libc6-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -s /usr/bin/python3.10 /usr/bin/python
+    && rm -rf /var/lib/apt/lists/*
 
-# 复制requirements.txt先安装依赖（利用Docker层缓存）
-COPY requirements.txt .
+# 复制项目文件
+COPY . /app
+
+# 安装项目依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制项目文件
@@ -35,10 +33,8 @@ RUN pip install --no-cache-dir -e .
 RUN mkdir -p /app/log
 
 # 暴露端口
-# MCP服务器端口
-EXPOSE 8000
-# Web管理界面端口
-EXPOSE 8080
+EXPOSE 8000  # MCP服务器端口
+EXPOSE 8080  # Web管理界面端口
 
-# 设置默认入口点（可通过docker-compose覆盖）
-CMD ["sap-mcp-server"]
+# 设置默认入口点为Web服务
+CMD ["python", "-m", "uvicorn", "web.main:app", "--host", "0.0.0.0", "--port", "8080"]

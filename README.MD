@@ -153,146 +153,39 @@ docker-compose down
 docker-compose down -v
 ```
 
-#### 2.3 离线 Docker 部署（适用于网络受限环境）
+### Services
 
-1. **在可访问网络的环境中下载镜像：**
-   ```bash
-   # 拉取 Python 基础镜像
-   docker pull python:3.10-slim
-   
-   # 保存镜像到本地文件
-   docker save python:3.10-slim -o python-3.10-slim.tar
-   ```
+- **sap-mcp-server**: SAP MCP Server running on port 8000
+- **sap-mcp-web**: Web management interface running on port 8080
 
-2. **将镜像文件传输到目标服务器**（使用 USB 或其他方法）
+### Access the Application
 
-3. **在目标服务器上加载镜像：**
-   ```bash
-   docker load -i python-3.10-slim.tar
-   ```
+1. **Web Management Interface**: Open your browser and navigate to `http://localhost:8080`
+2. **MCP Server**: The server is available at `http://localhost:8000/mcp` for client connections
 
-4. **构建并运行：**
-   ```bash
-   # 构建项目镜像
-   docker build -t sap-mcp .
-   
-   # 运行容器
-   docker run -d -p 8000:8000 -p 8080:8080 sap-mcp
-   ```
+### Configuration
 
-### 4. Docker 部署重要注意事项
+The `config.py` file is mounted as a volume in both containers, so you can modify it on the host machine and the changes will be reflected in the containers.
 
-#### 4.1 Docker 的主机配置
+### Logs
 
-在 Docker 容器中运行时，必须将 MCP 服务器配置为监听所有网络接口（0.0.0.0），而不仅仅是本地主机（127.0.0.1）。默认配置文件中已经正确设置，但如果您修改了它，请确保：
+Logs are stored in a Docker volume named `log_volume` and can be accessed from within the containers at `/app/log/sap_api.log`.
 
-```python
-# MCP 服务器配置
-MCP_SERVER_CONFIG = {
-    "host": "0.0.0.0",  # 重要：Docker 部署必须为 0.0.0.0
-    "port": 8000,
-    "path": "/mcp"
-}
-```
+### Customization
 
-如果您将 `host` 设置为 `127.0.0.1`，MCP 服务将只能在容器内部访问，而无法从外部访问。
+You can customize the Docker configuration by modifying the following files:
 
-#### 4.2 端口映射
+- `Dockerfile`: For customizing the base image and build process
+- `docker-compose.yml`: For customizing services, ports, volumes, and environment variables
+- `.dockerignore`: For excluding files from the Docker build context
 
-确保 Web 界面端口（8080）和 MCP 服务端口（8000）在 Docker 配置中正确映射：
+## Developers
 
-```yaml
-# 在 docker-compose.yml 中
-ports:
-  - "8080:8080"  # Web 管理界面
-  - "8000:8000"  # MCP 服务
-```
-
-### 5. 访问应用
-
-- **Web 管理界面**：打开浏览器并导航至 `http://server-ip:8080`
-- **MCP 服务器**：服务器在 `http://server-ip:8000/mcp` 可用于客户端连接
-
-### 6. 常见问题
-
-#### 6.1 端口冲突
-
-如果端口被占用，请修改 `config.py` 中的端口号：
-
-```python
-# 修改 MCP 服务器端口
-MCP_SERVER_CONFIG = {
-    "host": "0.0.0.0",
-    "port": 8001,  # 更改为其他端口
-    "path": "/mcp"
-}
-```
-
-#### 6.2 依赖安装失败
-
-如果依赖安装失败，请尝试使用国内镜像源：
-
-```bash
-pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
-```
-
-#### 6.3 服务启动失败
-
-查看日志文件 `log/sap_api.log` 获取详细错误信息：
-
-```bash
-# 查看日志文件
-cat log/sap_api.log
-```
-
-#### 6.4 MCP 服务无法从 Docker 容器外部访问
-
-**问题**：通过 Web 管理界面启动 MCP 服务后，服务无法从 Docker 容器外部访问。
-
-**解决方案**：
-1. 确保 MCP 服务配置为监听所有网络接口（`0.0.0.0`）：
-   ```python
-   # 在 config.py 中
-   MCP_SERVER_CONFIG = {
-       "host": "0.0.0.0",  # Docker 部署必须为 0.0.0.0
-       "port": 8000,
-       "path": "/mcp"
-   }
-   ```
-2. 确保端口在 `docker-compose.yml` 中正确映射：
-   ```yaml
-   # 在 docker-compose.yml 中
-   ports:
-     - "8000:8000"  # 映射 MCP 服务端口
-   ```
-3. 修改后重启 Docker 服务
-
-**根本原因**：如果服务仅监听 `127.0.0.1`，则只能在容器内部访问，无法从外部访问。
-
-### 7. 服务管理
-
-#### 7.1 停止服务
-
-- **按 Ctrl+C** 停止运行中的服务
-- 或使用 `kill` 命令终止进程
-
-#### 7.2 重启服务
-
-只需重新执行启动命令即可。
-
-### 8. 监控和维护
-
-- 定期检查日志文件：`log/sap_api.log`
-- 定期更新依赖：`pip install -r requirements.txt --upgrade`
-- 定期备份配置文件：`config.py`
-
-## 开发者
-
-- **产品设计**：Mark（吴让宇）
-- **开发者**：Mark（吴让宇）
-- **电话**：18685095797
-- **QQ**：121980331
-- **邮箱**：121980331@qq.com
+- **Product Design**: Mark (Wu Rangyu)
+- **Developer**: Mark (Wu Rangyu)
+- **Phone**: 18685095797
+- **QQ**: 121980331
+- **Email**: 121980331@qq.com
 
 ## 许可证
 
