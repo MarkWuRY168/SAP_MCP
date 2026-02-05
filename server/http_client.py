@@ -11,11 +11,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import SAP_CONFIG
 
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'log')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'sap_api.log')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('log/sap_api.log', encoding='utf-8'),
+        logging.FileHandler(log_file, encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -25,12 +29,9 @@ class SAPHttpClient:
     """SAP接口HTTP客户端"""
     
     def __init__(self):
-        self.base_url = SAP_CONFIG["base_url"]
-        self.client_id = SAP_CONFIG["client_id"]
-        self.timeout = SAP_CONFIG["timeout"]
-        self.sap_user = SAP_CONFIG["sap-user"]
-        self.sap_password = SAP_CONFIG["sap-password"]
-        
+        # 不存储配置值，每次请求时都从SAP_CONFIG读取最新配置
+        pass
+    
     async def _send_request(self, method: str, endpoint: str = "", params: dict = None, json: dict = None) -> dict:
         """发送HTTP请求到SAP接口
         
@@ -46,13 +47,20 @@ class SAPHttpClient:
         start_time = time.time()
         
         try:
+            # 每次请求时都从SAP_CONFIG读取最新配置
+            base_url = SAP_CONFIG["base_url"]
+            client_id = SAP_CONFIG["client_id"]
+            timeout = SAP_CONFIG["timeout"]
+            sap_user = SAP_CONFIG["sap-user"]
+            sap_password = SAP_CONFIG["sap-password"]
+            
             # 构建完整URL
-            url = f"{self.base_url}{endpoint}"
+            url = f"{base_url}{endpoint}"
             
             # 添加SAP客户端ID到查询参数
             if params is None:
                 params = {}
-            params["sap-client"] = self.client_id
+            params["sap-client"] = client_id
             
             # 记录请求日志
             logger.info(f"请求开始 - 方法: {method}, URL: {url}")
@@ -61,12 +69,12 @@ class SAPHttpClient:
                 logger.info(f"请求数据: {json_module.dumps(json, ensure_ascii=False)}")
             
             # 发送请求（使用HTTP Basic Auth）
-            auth = (self.sap_user, self.sap_password)
+            auth = (sap_user, sap_password)
             headers = {
                 "Content-Type": "application/json",
                 "Accept": "application/json"
             }
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.request(
                     method=method,
                     url=url,
