@@ -209,7 +209,27 @@ async def api_test_api():
 @app.get("/api/service/status", tags=["服务管理"])
 async def api_get_service_status():
     """获取服务状态"""
-    global mcp_server_status
+    global mcp_server_process, mcp_server_status
+    
+    # 检查进程是否还在运行
+    if mcp_server_process is not None:
+        if mcp_server_process.poll() is None:
+            # 进程还在运行，确保状态为running
+            if mcp_server_status["status"] != "running":
+                mcp_server_status = {
+                    "status": "running",
+                    "host": MCP_SERVER_CONFIG["host"],
+                    "port": MCP_SERVER_CONFIG["port"],
+                    "pid": mcp_server_process.pid
+                }
+        else:
+            # 进程已经终止，更新状态为stopped
+            mcp_server_status = {
+                "status": "stopped",
+                "host": MCP_SERVER_CONFIG["host"],
+                "port": MCP_SERVER_CONFIG["port"]
+            }
+    
     return mcp_server_status
 
 @app.post("/api/service/start", tags=["服务管理"])
@@ -261,11 +281,9 @@ async def api_start_service():
         else:
             # 获取完整的错误信息
             stdout, stderr = mcp_server_process.communicate()
-            full_stderr = stderr_partial + stderr
-            full_stdout = stdout_partial + stdout
             logger.error(f"MCP服务器启动失败，退出码: {mcp_server_process.returncode}")
-            logger.error(f"完整输出: {full_stdout}")
-            logger.error(f"完整错误: {full_stderr}")
+            logger.error(f"完整输出: {stdout}")
+            logger.error(f"完整错误: {stderr}")
             mcp_server_status = {
                 "status": "stopped",
                 "host": MCP_SERVER_CONFIG["host"],
@@ -299,7 +317,13 @@ async def api_stop_service():
         mcp_server_process.terminate()
         
         # 等待进程结束，最多等待5秒
-        mcp_server_process.wait(timeout=5)
+        try:
+            mcp_server_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # 如果进程没有在5秒内结束，就发送kill信号
+            logger.warning("MCP服务器进程未能在5秒内正常终止，发送kill信号")
+            mcp_server_process.kill()
+            mcp_server_process.wait(timeout=2)
         
         # 更新状态
         mcp_server_status = {
@@ -378,14 +402,17 @@ async def api_clear_logs():
         logger.error(f"清空日志文件失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"清空日志文件失败: {str(e)}")
 
+# 获取当前文件的目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
 # 静态文件服务
-app.mount("/static", StaticFiles(directory="web/static"), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(current_dir, "static")), name="static")
 
 # 主页面
 @app.get("/", response_class=HTMLResponse, tags=["Web界面"])
 async def root():
     """Web管理界面主页"""
-    with open(os.path.join("web", "templates", "index.html"), "r", encoding="utf-8") as f:
+    with open(os.path.join(current_dir, "templates", "index.html"), "r", encoding="utf-8") as f:
         return f.read()
 
 # 启动服务器

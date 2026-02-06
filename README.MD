@@ -40,6 +40,22 @@
 - Python 3.8 或更高版本
 - Git（可选，用于克隆仓库）
 - 网络连接（用于安装依赖）
+- 拥有SAP系统管理员权限
+
+### SAP Http接口服务激活
+
+在安装本项目前，需要在SAP系统中激活Http接口服务。请按照以下步骤操作：
+
+1. 步骤1： SAP系统程序代码导入-SAP请求导入程序，地址在 Request\SAP REQUEST\Y_UPLOAD_TRANSPORT_REQUEST.md
+   
+2. 步骤2： 执行SAP请求导入程序，导入开发包
+![alt text](image-1.png)
+
+3. 步骤3： SICF激活ZMCP服务，并测试服务正常使用
+![alt text](image-2.png)
+
+4. 步骤4： 事务码ZMCP_CONFIG配置SAP工具列表
+![alt text](image-3.png)
 
 ### 1. 手动部署
 
@@ -53,7 +69,6 @@ cd SAP_MCP
 
 **方法 2：直接复制文件**
 - 将整个项目文件夹复制到您的服务器
-
 #### 1.2 创建虚拟环境
 
 ```bash
@@ -133,10 +148,14 @@ python -m uvicorn web.main:app --host 0.0.0.0 --port 8080
 
 - 系统已安装 Docker
 - 系统已安装 Docker Compose
+- 网络连接正常（需要访问 Docker Hub）
 
 #### 2.2 使用 Docker Compose 构建和运行
 
 ```bash
+# 进入 Docker 文件夹
+cd Docker
+
 # 构建并运行所有服务
 docker-compose up -d
 
@@ -153,39 +172,90 @@ docker-compose down
 docker-compose down -v
 ```
 
-### Services
+#### 2.3 常见问题解决
 
-- **sap-mcp-server**: SAP MCP Server running on port 8000
-- **sap-mcp-web**: Web management interface running on port 8080
+**问题 1：无法连接到 Docker Hub**
 
-### Access the Application
+如果遇到类似以下的错误：
+```
+failed to do request: Head "https://registry-1.docker.io/v2/library/ubuntu/manifests/22.04": dial tcp: connectex: A connection attempt failed
+```
 
-1. **Web Management Interface**: Open your browser and navigate to `http://localhost:8080`
-2. **MCP Server**: The server is available at `http://localhost:8000/mcp` for client connections
+**解决方案：**
 
-### Configuration
+1. **检查网络连接**：确保您的网络可以访问 Docker Hub
+2. **配置 Docker 镜像加速器**（推荐）：
+   - 打开 Docker Desktop
+   - 进入 Settings > Docker Engine
+   - 添加以下配置：
+   ```json
+   {
+     "registry-mirrors": [
+       "https://docker.mirrors.ustc.edu.cn",
+       "https://hub-mirror.c.163.com",
+       "https://mirror.baidubce.com"
+     ]
+   }
+   ```
+   - 点击 "Apply & Restart"
 
-The `config.py` file is mounted as a volume in both containers, so you can modify it on the host machine and the changes will be reflected in the containers.
+3. **使用代理**（如果需要）：
+   - 打开 Docker Desktop
+   - 进入 Settings > Resources > Proxies
+   - 配置您的代理服务器
 
-### Logs
+4. **手动拉取镜像**：
+   ```bash
+   docker pull ubuntu:22.04
+   docker-compose up -d
+   ```
 
-Logs are stored in a Docker volume named `log_volume` and can be accessed from within the containers at `/app/log/sap_api.log`.
+**问题 2：构建失败**
 
-### Customization
+如果构建过程中出现错误，可以尝试：
 
-You can customize the Docker configuration by modifying the following files:
+```bash
+# 清理之前的构建缓存
+docker-compose down
+docker system prune -a
 
-- `Dockerfile`: For customizing the base image and build process
-- `docker-compose.yml`: For customizing services, ports, volumes, and environment variables
-- `.dockerignore`: For excluding files from the Docker build context
+# 重新构建
+docker-compose up -d --build
+```
 
-## Developers
+### 服务
 
-- **Product Design**: Mark (Wu Rangyu)
-- **Developer**: Mark (Wu Rangyu)
-- **Phone**: 18685095797
+- **sap-mcp-server**: SAP MCP 服务器运行在端口 8000
+- **sap-mcp-web**: Web 管理界面运行在端口 8080
+
+### 访问应用
+
+1. **Web 管理界面**: 打开浏览器并导航到 `http://localhost:8080`
+2. **MCP 服务器**: 服务器可通过 `http://localhost:8000/mcp` 进行客户端连接
+
+### 配置
+
+`config.py` 文件被挂载为两个容器的卷，因此您可以在主机上修改它，更改将反映在容器中。
+
+### 日志
+
+日志存储在名为 `log_volume` 的 Docker 卷中，可从容器内的 `/app/log/sap_api.log` 访问。
+
+### 自定义
+
+您可以通过修改 `Docker` 文件夹中的以下文件来自定义 Docker 配置：
+
+- `Dockerfile`: 用于自定义基础镜像和构建过程
+- `docker-compose.yml`: 用于自定义服务、端口、卷和环境变量
+- `.dockerignore`: 用于从 Docker 构建上下文中排除文件
+
+## 开发者
+
+- **产品设计**: Mark (Wu Rangyu)
+- **开发者**: Mark (Wu Rangyu)
+- **电话**: 18685095797
 - **QQ**: 121980331
-- **Email**: 121980331@qq.com
+- **邮箱**: 121980331@qq.com
 
 ## 许可证
 

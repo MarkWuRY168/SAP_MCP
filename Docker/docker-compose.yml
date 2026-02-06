@@ -1,16 +1,15 @@
-version: '3.8'
-
 services:
   # SAP MCP Web 管理界面服务
   sap-mcp-web:
     build:
-      context: .
+      context: ..
+      dockerfile: Docker/Dockerfile
     container_name: sap-mcp-web
     ports:
       - "8080:8080"  # 映射Web管理界面端口
       - "8000:8000"  # 映射MCP服务端口
     volumes:
-      - ./config.py:/app/config.py  # 挂载配置文件
+      - ../config.py:/app/config.py  # 挂载配置文件
       - log_volume:/app/log  # 挂载日志目录
     restart: unless-stopped
     environment:
