@@ -12,29 +12,30 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 导入现有的SAP MCP服务器功能
 from server.http_client import SAPHttpClient
-from config import SAP_CONFIG, MCP_SERVER_CONFIG
-import logging
+from config import SAP_CONFIG, MCP_SERVER_CONFIG, WEB_CONFIG
+from utils.common import handle_http_error, format_jsonrpc_result
+from utils.logging_config import get_logger
 import subprocess
-import os
-import sys
 import time
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 获取logger实例
+logger = get_logger(__name__)
 
 # SAP API端点配置
 API_ENDPOINTS = {
-    "TOOL_LIST": "MCP_TOOL_LIST",
-    "TOOL_DETAIL": "MCP_TOOL_DETAIL",
-    "USE_TOOL": "USE_MCP_TOOL"
+    "TOOL_LIST": "TOOL_LIST",
+    "TOOL_DETAIL": "TOOL_DETAIL",
+    "USE_TOOL": "TOOL_USED"
 }
 
 # 创建FastAPI应用
 app = FastAPI(
     title="SAP MCP Web Management",
-    description="SAP MCP服务器的Web管理界面",
-    version="1.0.0"
+    description="SAP MCP服务器的Web管理界面，提供工具管理、配置管理、服务管理和日志管理等功能",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 # 配置CORS
@@ -42,8 +43,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # 在生产环境中应限制为特定域名
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept", "Authorization"],
 )
 
 # 创建HTTP客户端实例
@@ -56,32 +57,16 @@ mcp_server_status = {"status": "stopped", "host": MCP_SERVER_CONFIG["host"], "po
 # 统一错误处理函数
 async def handle_error(error: Exception, context: str = "") -> None:
     """统一错误处理函数"""
-    error_msg = f"{context}: {str(error)}" if context else str(error)
-    logger.error(error_msg, exc_info=True)
-    raise HTTPException(status_code=500, detail=error_msg)
-
-# 格式化JSON-RPC响应
-def format_jsonrpc_result(result: any) -> dict:
-    """格式化JSON-RPC响应"""
-    if isinstance(result, list):
-        return {
-            "JSONRPC": "2.0",
-            "RESULT": result,
-            "ID": ""
-        }
-    elif isinstance(result, dict) and "RESULT" in result:
-        return result
-    else:
-        return {
-            "JSONRPC": "2.0",
-            "RESULT": result if isinstance(result, list) else [result],
-            "ID": ""
-        }
+    await handle_http_error(error, context)
 
 # 定义API路由
 @app.get("/api/tools", tags=["工具管理"])
 async def api_get_tool_list():
-    """获取工具清单"""
+    """获取工具清单
+    
+    Returns:
+        dict: 包含工具清单的JSON-RPC响应
+    """
     try:
         logger.info("获取工具清单")
         result = await http_client.get(params={"id": API_ENDPOINTS["TOOL_LIST"]})
@@ -91,27 +76,65 @@ async def api_get_tool_list():
 
 @app.post("/api/tools/{tool_id}/details", tags=["工具管理"])
 async def api_get_tool_details(tool_id: str, request_data: dict = None):
-    """获取工具详情"""
+    """获取工具详情
+    
+    Args:
+        tool_id: 工具ID
+        request_data: 请求数据（可选）
+    
+    Returns:
+        dict: 工具参数格式，包含工具的详细参数信息
+    """
     try:
         logger.info(f"获取工具详情: {tool_id}")
         result = await http_client.post(
             params={"id": API_ENDPOINTS["TOOL_DETAIL"]},
             json={"TOOL_ID": tool_id}
         )
+        
+        if result and isinstance(result, dict):
+            # 处理新的JSON格式，从param字段获取参数格式
+            param_format = result.get("param", {})
+            # 同时兼容旧格式，从PARAM字段获取参数格式
+            if not param_format:
+                param_format = result.get("PARAM", {})
+            
+            # 确保返回的数据格式符合前端预期
+            return {
+                "TOOL_ID": tool_id,
+                "PARAM": param_format
+            }
+        
         return result
     except Exception as e:
         return await handle_error(e, "获取工具详情失败")
 
 @app.post("/api/tools/{tool_id}/use", tags=["工具管理"])
 async def api_use_tool(tool_id: str, request_data: dict):
-    """使用工具"""
+    """使用工具
+    
+    Args:
+        tool_id: 工具ID
+        request_data: 请求数据，包含工具所需的参数
+    
+    Returns:
+        dict: 工具执行结果
+    """
     try:
         logger.info(f"使用工具: {tool_id}")
-        # 添加TOOL_ID到请求数据
-        request_data["TOOL_ID"] = tool_id
+        
+        # 从请求数据中提取PARAM对象
+        param_data = request_data.get("PARAM", {})
+        
+        # 构建发送给SAP接口的数据（保持PARAM结构）
+        sap_request_data = {
+            "TOOL_ID": tool_id,
+            "PARAM": param_data
+        }
+        
         result = await http_client.post(
             params={"id": API_ENDPOINTS["USE_TOOL"]},
-            json=request_data
+            json=sap_request_data
         )
         return result
     except Exception as e:
@@ -119,7 +142,11 @@ async def api_use_tool(tool_id: str, request_data: dict):
 
 @app.get("/api/config", tags=["配置管理"])
 async def api_get_config():
-    """获取服务器配置"""
+    """获取服务器配置
+    
+    Returns:
+        dict: 包含MCP服务器配置和SAP配置的字典
+    """
     return {
         "config": MCP_SERVER_CONFIG,
         "sap_config": SAP_CONFIG
@@ -131,23 +158,57 @@ def save_config_to_file():
         config_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.py")
         
         with open(config_file_path, "w", encoding="utf-8") as f:
-            f.write("# SAP MCP 配置文件\n\n")
+            f.write("# SAP MCP 配置文件\nimport os\n\n")
             f.write("# SAP接口配置\n")
             f.write("SAP_CONFIG = {\n")
             for key, value in SAP_CONFIG.items():
-                if isinstance(value, str):
-                    f.write(f"    \"{key}\": \"{value}\",\n")
+                # 检查是否有环境变量设置
+                env_var = None
+                if key == "base_url":
+                    env_var = "SAP_BASE_URL"
+                elif key == "client_id":
+                    env_var = "SAP_CLIENT_ID"
+                elif key == "sap-user":
+                    env_var = "SAP_USER"
+                elif key == "sap-password":
+                    env_var = "SAP_PASSWORD"
+                elif key == "timeout":
+                    env_var = "SAP_TIMEOUT"
+                
+                if env_var:
+                    if isinstance(value, str):
+                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\"),\n")
+                    else:
+                        f.write(f"    \"{key}\": int(os.environ.get(\"{env_var}\", \"{value}\")) if isinstance(value, int) else os.environ.get(\"{env_var}\", \"{value}\"),\n")
                 else:
-                    f.write(f"    \"{key}\": {value},\n")
+                    if isinstance(value, str):
+                        f.write(f"    \"{key}\": \"{value}\",\n")
+                    else:
+                        f.write(f"    \"{key}\": {value},\n")
             f.write("}\n\n")
             
             f.write("# MCP服务器配置\n")
             f.write("MCP_SERVER_CONFIG = {\n")
             for key, value in MCP_SERVER_CONFIG.items():
-                if isinstance(value, str):
-                    f.write(f"    \"{key}\": \"{value}\",\n")
+                # 检查是否有环境变量设置
+                env_var = None
+                if key == "host":
+                    env_var = "MCP_HOST"
+                elif key == "port":
+                    env_var = "MCP_PORT"
+                elif key == "path":
+                    env_var = "MCP_PATH"
+                
+                if env_var:
+                    if isinstance(value, str):
+                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\"),\n")
+                    else:
+                        f.write(f"    \"{key}\": int(os.environ.get(\"{env_var}\", \"{value}\")) if isinstance(value, int) else os.environ.get(\"{env_var}\", \"{value}\"),\n")
                 else:
-                    f.write(f"    \"{key}\": {value},\n")
+                    if isinstance(value, str):
+                        f.write(f"    \"{key}\": \"{value}\",\n")
+                    else:
+                        f.write(f"    \"{key}\": {value},\n")
             f.write("}\n")
         
         logger.info(f"配置已保存到文件: {config_file_path}")
@@ -158,7 +219,14 @@ def save_config_to_file():
 
 @app.post("/api/config", tags=["配置管理"])
 async def api_save_config(config_data: dict):
-    """保存服务器配置"""
+    """保存服务器配置
+    
+    Args:
+        config_data: 包含配置数据的字典，可包含sap和mcp两个键
+    
+    Returns:
+        dict: 包含保存结果和更新后配置的字典
+    """
     try:
         logger.info(f"保存配置请求: {json.dumps(config_data, ensure_ascii=False)}")
         
@@ -182,15 +250,19 @@ async def api_save_config(config_data: dict):
 
 @app.post("/api/test-api", tags=["配置管理"])
 async def api_test_api():
-    """测试SAP接口连接"""
+    """测试SAP接口连接
+    
+    Returns:
+        dict: 包含测试结果的字典
+    """
     try:
         logger.info("测试SAP接口连接")
         
         # 使用当前配置创建新的HTTP客户端实例
         test_client = SAPHttpClient()
         
-        # 调用id=MCP_TOOL_LIST的接口
-        result = await test_client.get(params={"id": "MCP_TOOL_LIST"})
+        # 调用id=TOOL_LIST的接口
+        result = await test_client.get(params={"id": "TOOL_LIST"})
         
         logger.info(f"SAP接口测试成功: {json.dumps(result, ensure_ascii=False)}")
         return {
@@ -244,26 +316,30 @@ async def api_start_service():
         # 启动MCP服务器进程
         logger.info("启动MCP服务器进程")
         
-        # 获取当前目录
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        server_dir = os.path.join(os.path.dirname(current_dir), "server")
+        # 获取项目根目录
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
         # 构建启动命令
         cmd = [
             sys.executable,  # 使用当前Python解释器
-            "server/sap_mcp_server.py"
+            os.path.join("server", "sap_mcp_server.py")
         ]
         
-        # 启动进程，不捕获输出，让它直接输出到控制台
-        mcp_server_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,  # 忽略标准输出
-            stderr=subprocess.DEVNULL,  # 忽略标准错误
-            cwd=os.path.dirname(current_dir)  # 在项目根目录执行
-        )
+        # 启动进程，捕获输出到日志文件
+        log_file_path = os.path.join(project_root, "log", "mcp_server.log")
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+        
+        with open(log_file_path, "a", encoding="utf-8") as log_file:
+            mcp_server_process = subprocess.Popen(
+                cmd,
+                stdout=log_file,
+                stderr=log_file,
+                cwd=project_root  # 在项目根目录执行
+            )
         
         logger.info(f"MCP服务器进程启动，PID: {mcp_server_process.pid}")
         logger.info(f"启动命令: {' '.join(cmd)}")
+        logger.info(f"日志文件: {log_file_path}")
         
         # 等待服务启动
         time.sleep(3)
@@ -274,21 +350,27 @@ async def api_start_service():
                 "status": "running",
                 "host": MCP_SERVER_CONFIG["host"],
                 "port": MCP_SERVER_CONFIG["port"],
-                "pid": mcp_server_process.pid
+                "pid": mcp_server_process.pid,
+                "log_file": log_file_path
             }
             logger.info(f"MCP服务器启动成功，进程ID: {mcp_server_process.pid}")
             return {"message": "服务启动成功", "status": mcp_server_status}
         else:
             # 获取完整的错误信息
-            stdout, stderr = mcp_server_process.communicate()
+            try:
+                with open(log_file_path, "r", encoding="utf-8") as log_file:
+                    log_content = log_file.read()
+            except Exception:
+                log_content = "无法读取日志文件"
+            
             logger.error(f"MCP服务器启动失败，退出码: {mcp_server_process.returncode}")
-            logger.error(f"完整输出: {stdout}")
-            logger.error(f"完整错误: {stderr}")
+            logger.error(f"日志内容: {log_content}")
+            
             mcp_server_status = {
                 "status": "stopped",
                 "host": MCP_SERVER_CONFIG["host"],
                 "port": MCP_SERVER_CONFIG["port"],
-                "error": full_stderr
+                "error": log_content[:500] if log_content else "启动失败"
             }
             return {"message": "服务启动失败", "status": mcp_server_status}
             
@@ -318,12 +400,18 @@ async def api_stop_service():
         
         # 等待进程结束，最多等待5秒
         try:
-            mcp_server_process.wait(timeout=5)
+            exit_code = mcp_server_process.wait(timeout=5)
+            logger.info(f"MCP服务器进程正常终止，退出码: {exit_code}")
         except subprocess.TimeoutExpired:
             # 如果进程没有在5秒内结束，就发送kill信号
             logger.warning("MCP服务器进程未能在5秒内正常终止，发送kill信号")
             mcp_server_process.kill()
-            mcp_server_process.wait(timeout=2)
+            try:
+                exit_code = mcp_server_process.wait(timeout=2)
+                logger.info(f"MCP服务器进程被强制终止，退出码: {exit_code}")
+            except subprocess.TimeoutExpired:
+                logger.error("MCP服务器进程无法终止")
+                return {"message": "服务停止失败: 进程无法终止", "status": mcp_server_status}
         
         # 更新状态
         mcp_server_status = {
@@ -337,7 +425,7 @@ async def api_stop_service():
         
     except Exception as e:
         logger.error(f"停止服务失败: {str(e)}")
-        return {"message": "服务停止失败", "status": mcp_server_status}
+        return {"message": f"服务停止失败: {str(e)}", "status": mcp_server_status}
 
 @app.get("/api/logs", tags=["日志管理"])
 async def api_get_logs(level: str = "all", limit: int = 1000):
@@ -402,6 +490,39 @@ async def api_clear_logs():
         logger.error(f"清空日志文件失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"清空日志文件失败: {str(e)}")
 
+
+@app.get("/api/health", tags=["健康检查"])
+async def api_health_check():
+    """健康检查端点
+    
+    Returns:
+        dict: 健康状态信息
+    """
+    try:
+        # 检查服务状态
+        service_status = await api_get_service_status()
+        
+        # 尝试连接SAP接口
+        try:
+            test_client = SAPHttpClient()
+            await test_client.get(params={"id": "TOOL_LIST"})
+            sap_status = "healthy"
+        except Exception as e:
+            sap_status = f"unhealthy: {str(e)}"
+        
+        return {
+            "status": "healthy",
+            "service_status": service_status,
+            "sap_status": sap_status,
+            "version": "1.0.0"
+        }
+    except Exception as e:
+        logger.error(f"健康检查失败: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+
 # 获取当前文件的目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -420,7 +541,7 @@ if __name__ == "__main__":
     logger.info("启动SAP MCP Web管理服务器")
     uvicorn.run(
         "web.main:app",
-        host="0.0.0.0",
-        port=8080,
-        reload=True  # 开发环境启用自动重载
+        host=WEB_CONFIG["host"],
+        port=WEB_CONFIG["port"],
+        reload=WEB_CONFIG["reload"]
     )

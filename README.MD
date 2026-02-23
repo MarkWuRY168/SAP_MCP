@@ -10,6 +10,19 @@
 
 该项目利用 AI 技术将 SAP 系统工具发布为 MCP 服务，为将前沿 AI 能力集成到 SAP 系统中提供了可行的解决方案。
 
+### 新增功能
+
+1. **健康检查**：添加了健康检查端点，可监控服务状态和SAP接口连接状态
+2. **环境变量支持**：支持通过环境变量配置敏感信息，提高安全性
+3. **日志轮转**：实现了日志文件自动轮转，避免日志文件过大
+4. **性能优化**：
+   - 添加了缓存机制，减少重复请求
+   - 改进了HTTP客户端，使用连接池和重试机制
+   - 实现了指数退避策略，提高请求成功率
+5. **API文档**：集成了FastAPI的自动文档生成功能，可通过 `/docs` 和 `/redoc` 访问
+6. **单元测试**：添加了单元测试，提高代码质量和可靠性
+7. **代码结构优化**：重构了代码结构，移除了重复代码，添加了工具函数模块
+
 ### Web 管理界面
 
 1. **服务状态管理**：
@@ -49,13 +62,13 @@
 1. 步骤1： SAP系统程序代码导入-SAP请求导入程序，地址在 Request\SAP REQUEST\Y_UPLOAD_TRANSPORT_REQUEST.md
    
 2. 步骤2： 执行SAP请求导入程序，导入开发包
-![alt text](image-1.png)
+![alt text](Doc/Picture/image-1.png)
 
 3. 步骤3： SICF激活ZMCP服务，并测试服务正常使用
-![alt text](image-2.png)
+![alt text](Doc/Picture/image-2.png)
 
 4. 步骤4： 事务码ZMCP_CONFIG配置SAP工具列表
-![alt text](image-3.png)
+![alt text](Doc/Picture/image-3.png)
 
 ### 1. 手动部署
 
@@ -126,6 +139,21 @@ MCP_SERVER_CONFIG = {
 }
 ```
 
+**环境变量配置：**
+
+项目支持通过环境变量配置敏感信息，避免硬编码。以下是支持的环境变量：
+
+| 环境变量 | 描述 | 默认值 |
+|---------|------|--------|
+| MCP_HOST | MCP服务器主机 | 0.0.0.0 |
+| MCP_PORT | MCP服务器端口 | 8000 |
+| MCP_PATH | MCP服务器路径 | /mcp |
+| WEB_HOST | Web服务器主机 | 0.0.0.0 |
+| WEB_PORT | Web服务器端口 | 8080 |
+| WEB_RELOAD | Web服务器自动重载（开发环境） | True |
+
+您可以在启动服务前设置这些环境变量，或者创建一个 `.env` 文件来存储它们。
+
 #### 1.5 启动服务
 
 ##### 方法 1：仅启动 MCP 服务器
@@ -136,6 +164,13 @@ python server/sap_mcp_server.py
 ```
 
 ##### 方法 2：启动 Web 管理界面
+
+```bash
+# 启动 Web 管理界面
+python web/main.py
+```
+
+或者使用 uvicorn 直接启动：
 
 ```bash
 # 启动 Web 管理界面
@@ -232,6 +267,10 @@ docker-compose up -d --build
 
 1. **Web 管理界面**: 打开浏览器并导航到 `http://localhost:8080`
 2. **MCP 服务器**: 服务器可通过 `http://localhost:8000/mcp` 进行客户端连接
+3. **API文档**: 
+   - Swagger UI: `http://localhost:8080/docs`
+   - ReDoc: `http://localhost:8080/redoc`
+4. **健康检查**: `http://localhost:8080/api/health`
 
 ### 配置
 

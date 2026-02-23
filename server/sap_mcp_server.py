@@ -20,98 +20,32 @@ try:
 except ImportError:
     from ..config import MCP_SERVER_CONFIG
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 导入工具函数
+try:
+    from utils.common import handle_error, format_jsonrpc_result, convert_user_params_to_sap_format
+except ImportError:
+    from ..utils.common import handle_error, format_jsonrpc_result, convert_user_params_to_sap_format
+
+# 导入日志配置
+try:
+    from utils.logging_config import get_logger
+except ImportError:
+    from ..utils.logging_config import get_logger
+
+# 获取logger实例
+logger = get_logger(__name__)
 
 API_ENDPOINTS = {
-    "TOOL_LIST": "MCP_TOOL_LIST",
-    "TOOL_DETAIL": "MCP_TOOL_DETAIL",
-    "USE_TOOL": "USE_MCP_TOOL"
+    "TOOL_LIST": "TOOL_LIST",
+    "TOOL_DETAIL": "TOOL_DETAIL",
+    "USE_TOOL": "TOOL_USED"
 }
-
-JSONRPC_VERSION = "2.0"
 
 mcp = FastMCP("SAP_MCP_Server")
 http_client = SAPHttpClient()
 
 # 工具参数格式缓存（内存存储，无需数据库）
 TOOL_PARAMS_CACHE: Dict[str, Dict[str, Any]] = {}
-
-
-def handle_error(error: Exception, context: str = "") -> Dict[str, Any]:
-    """统一错误处理函数
-    
-    Args:
-        error: 捕获的异常对象
-        context: 错误发生的上下文信息
-        
-    Returns:
-        包含错误信息的字典
-    """
-    error_msg = f"{context}: {str(error)}" if context else str(error)
-    logger.error(error_msg, exc_info=True)
-    return {"error": error_msg}
-
-
-def format_jsonrpc_result(result: Any) -> Dict[str, Any]:
-    """格式化JSON-RPC响应
-    
-    Args:
-        result: 原始结果数据
-        
-    Returns:
-        格式化后的JSON-RPC响应
-    """
-    if isinstance(result, list):
-        return {
-            "JSONRPC": JSONRPC_VERSION,
-            "RESULT": result,
-            "ID": ""
-        }
-    elif isinstance(result, dict) and "RESULT" in result:
-        return result
-    else:
-        return {
-            "JSONRPC": JSONRPC_VERSION,
-            "RESULT": result if isinstance(result, list) else [result],
-            "ID": ""
-        }
-
-
-def convert_user_params_to_sap_format(user_params: Dict[str, Any], param_format: Dict[str, Any]) -> Dict[str, Any]:
-    """将用户传入的参数转换为SAP接口要求的格式
-    
-    Args:
-        user_params: 用户传入的原始参数（扁平格式）
-        param_format: 从内存缓存获取的参数格式模板（嵌套格式）
-        
-    Returns:
-        转换后的符合SAP接口格式的参数
-    """
-    if not param_format:
-        return user_params
-    
-    def fill_params(template: Dict[str, Any], values: Dict[str, Any]) -> Dict[str, Any]:
-        """递归填充参数值到模板中"""
-        result = {}
-        for key, template_value in template.items():
-            if isinstance(template_value, dict):
-                if key in values:
-                    user_value = values[key]
-                    if isinstance(user_value, dict):
-                        result[key] = fill_params(template_value, user_value)
-                    else:
-                        result[key] = user_value
-                else:
-                    result[key] = fill_params(template_value, values)
-            else:
-                if key in values:
-                    result[key] = values[key]
-                else:
-                    result[key] = template_value
-        return result
-    
-    return fill_params(param_format, user_params)
 
 
 async def get_tool_params_format(tool_id: str) -> Optional[Dict[str, Any]]:
@@ -174,9 +108,20 @@ async def get_tool_details(json_data: Dict[str, Any]) -> Dict[str, Any]:
         )
         
         if result and isinstance(result, dict):
+            # 处理新的JSON格式，从param字段获取参数格式
+            param_format = result.get("param", {})
+            # 同时兼容旧格式，从PARAM字段获取参数格式
+            if not param_format:
+                param_format = result.get("PARAM", {})
             # 将工具参数格式保存到内存缓存
-            TOOL_PARAMS_CACHE[tool_id] = result.get("PARAM", {})
+            TOOL_PARAMS_CACHE[tool_id] = param_format
             logger.info(f"工具参数格式已保存到内存缓存: {tool_id}")
+            
+            # 确保返回的数据格式符合前端预期
+            return {
+                "TOOL_ID": tool_id,
+                "PARAM": param_format
+            }
         
         return result
     except Exception as e:

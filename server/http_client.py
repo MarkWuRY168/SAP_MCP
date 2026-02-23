@@ -4,33 +4,56 @@ import os
 import re
 import sys
 import time
+from typing import Optional, Dict, Any
 
 import httpx
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import SAP_CONFIG
+from utils.logging_config import get_logger
+from utils.cache import cache_decorator
 
-log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'log')
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, 'sap_api.log')
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file, encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger('SAPHttpClient')
+# 获取logger实例
+logger = get_logger('SAPHttpClient')
 
 class SAPHttpClient:
     """SAP接口HTTP客户端"""
     
     def __init__(self):
-        # 不存储配置值，每次请求时都从SAP_CONFIG读取最新配置
-        pass
+        # 创建可重用的HTTP客户端
+        self._client: Optional[httpx.AsyncClient] = None
+    
+    async def _get_client(self) -> httpx.AsyncClient:
+        """获取HTTP客户端实例（使用连接池）
+        
+        Returns:
+            httpx.AsyncClient: HTTP客户端实例
+        """
+        if self._client is None or self._client.is_closed:
+            # 从SAP_CONFIG读取配置
+            timeout = SAP_CONFIG["timeout"]
+            
+            # 创建新的客户端实例
+            self._client = httpx.AsyncClient(
+                timeout=timeout,
+                limits=httpx.Limits(
+                    max_connections=100,
+                    max_keepalive_connections=20,
+                    keepalive_expiry=30.0,
+                ),
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            )
+        return self._client
+    
+    async def close(self) -> None:
+        """关闭HTTP客户端"""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
     
     async def _send_request(self, method: str, endpoint: str = "", params: dict = None, json: dict = None) -> dict:
         """发送HTTP请求到SAP接口
@@ -45,43 +68,43 @@ class SAPHttpClient:
             dict: 响应数据
         """
         start_time = time.time()
+        retry_count = 0
+        max_retries = 3
+        retry_delay = 1  # 秒
         
-        try:
-            # 每次请求时都从SAP_CONFIG读取最新配置
-            base_url = SAP_CONFIG["base_url"]
-            client_id = SAP_CONFIG["client_id"]
-            timeout = SAP_CONFIG["timeout"]
-            sap_user = SAP_CONFIG["sap-user"]
-            sap_password = SAP_CONFIG["sap-password"]
-            
-            # 构建完整URL
-            url = f"{base_url}{endpoint}"
-            
-            # 添加SAP客户端ID到查询参数
-            if params is None:
-                params = {}
-            params["sap-client"] = client_id
-            
-            # 记录请求日志
-            logger.info(f"请求开始 - 方法: {method}, URL: {url}")
-            logger.info(f"请求参数: {params}")
-            if json:
-                logger.info(f"请求数据: {json_module.dumps(json, ensure_ascii=False)}")
-            
-            # 发送请求（使用HTTP Basic Auth）
-            auth = (sap_user, sap_password)
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
-            async with httpx.AsyncClient(timeout=timeout) as client:
+        while retry_count <= max_retries:
+            try:
+                # 每次请求时都从SAP_CONFIG读取最新配置
+                base_url = SAP_CONFIG["base_url"]
+                client_id = SAP_CONFIG["client_id"]
+                sap_user = SAP_CONFIG["sap-user"]
+                sap_password = SAP_CONFIG["sap-password"]
+                
+                # 构建完整URL
+                url = f"{base_url}{endpoint}"
+                
+                # 添加SAP客户端ID到查询参数
+                if params is None:
+                    params = {}
+                params["sap-client"] = client_id
+                
+                # 记录请求日志
+                logger.info(f"请求开始 - 方法: {method}, URL: {url}")
+                logger.info(f"请求参数: {params}")
+                if json:
+                    logger.info(f"请求数据: {json_module.dumps(json, ensure_ascii=False)}")
+                
+                # 发送请求（使用HTTP Basic Auth）
+                auth = (sap_user, sap_password)
+                
+                # 获取客户端实例
+                client = await self._get_client()
                 response = await client.request(
                     method=method,
                     url=url,
                     params=params,
                     json=json,
-                    auth=auth,
-                    headers=headers
+                    auth=auth
                 )
                 
                 # 计算响应时间
@@ -136,27 +159,49 @@ class SAPHttpClient:
                     logger.error(f"响应错误: 无法解析JSON响应")
                     raise Exception("SAP接口返回非JSON响应")
                 
-        except httpx.HTTPStatusError as e:
-            # 处理HTTP错误
-            response_time = time.time() - start_time
-            error_msg = f"HTTP请求错误: {e.response.status_code} - {e.response.text}"
-            logger.error(f"{error_msg}, 响应时间: {response_time:.3f}秒")
-            raise Exception(error_msg) from e
-        
-        except httpx.RequestError as e:
-            # 处理请求错误
-            response_time = time.time() - start_time
-            error_msg = f"请求发送失败: {str(e)}"
-            logger.error(f"{error_msg}, 响应时间: {response_time:.3f}秒")
-            raise Exception(error_msg) from e
-        
-        except Exception as e:
-            # 处理其他错误
-            response_time = time.time() - start_time
-            error_msg = f"请求处理失败: {str(e)}"
-            logger.error(f"{error_msg}, 响应时间: {response_time:.3f}秒")
-            raise Exception(error_msg) from e
+            except httpx.HTTPStatusError as e:
+                # 处理HTTP错误
+                response_time = time.time() - start_time
+                error_msg = f"HTTP请求错误: {e.response.status_code} - {e.response.text}"
+                logger.error(f"{error_msg}, 响应时间: {response_time:.3f}秒")
+                
+                # 对于4xx错误，不重试
+                if 400 <= e.response.status_code < 500:
+                    raise Exception(error_msg) from e
+                
+                # 对于5xx错误，重试
+                retry_count += 1
+                if retry_count > max_retries:
+                    raise Exception(error_msg) from e
+                
+                logger.warning(f"请求失败，正在重试 ({retry_count}/{max_retries})...")
+                time.sleep(retry_delay * (2 ** (retry_count - 1)))  # 指数退避
+                
+            except httpx.RequestError as e:
+                # 处理请求错误
+                response_time = time.time() - start_time
+                error_msg = f"请求发送失败: {str(e)}"
+                logger.error(f"{error_msg}, 响应时间: {response_time:.3f}秒")
+                
+                # 对于网络错误，重试
+                retry_count += 1
+                if retry_count > max_retries:
+                    # 提供更详细的错误信息
+                    if isinstance(e, httpx.ReadTimeout):
+                        error_msg = f"连接SAP服务器超时({SAP_CONFIG['timeout']}秒)，请检查：\n1. SAP服务器地址是否正确\n2. 网络连接是否正常\n3. SAP服务器是否正在运行"
+                    raise Exception(error_msg) from e
+                
+                logger.warning(f"请求失败，正在重试 ({retry_count}/{max_retries})...")
+                time.sleep(retry_delay * (2 ** (retry_count - 1)))  # 指数退避
+                
+            except Exception as e:
+                # 处理其他错误
+                response_time = time.time() - start_time
+                error_msg = f"请求处理失败: {str(e)}"
+                logger.error(f"{error_msg}, 响应时间: {response_time:.3f}秒")
+                raise Exception(error_msg) from e
     
+    @cache_decorator(ttl=300)  # 缓存5分钟
     async def get(self, endpoint: str = "", params: dict = None) -> dict:
         """发送GET请求
         

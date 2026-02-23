@@ -144,70 +144,96 @@ function generateToolForm(paramSchema) {
         
         // 遍历所有字段，生成表单
         for (const [key, value] of Object.entries(schema)) {
-            // 直接使用字段名作为标签，不使用name属性
-            // 无论value是什么结构，都使用key作为字段标签
-            let fieldLabel = key;
-            let fieldType = '';
-            
             const fieldName = parentPath ? `${parentPath}[${key}]` : key;
             
-            // 检查当前值是否是对象，如果是，检查是否包含type属性
+            // 检查当前值是否是对象
             if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                // 提取type属性（如果存在），忽略name属性
-                let typeValue = value.type || '';
-                
-                // 保存type值
-                fieldType = typeValue;
-                
-                // 生成卡片
-                const cardId = `card-${Math.random().toString(36).substr(2, 9)}`;
-                
-                // 构建卡片标题，只显示字段名和type，不使用name属性
-                let cardTitle = key;
-                if (fieldType) {
-                    cardTitle += ` (${fieldType})`;
+                // 检查是否是参数字段（包含name、type、value等属性）
+                if (value.hasOwnProperty('name') || value.hasOwnProperty('type') || value.hasOwnProperty('value')) {
+                    // 这是一个参数字段，name和type是说明，value是实际值
+                    const nameValue = value.name || '';
+                    const typeValue = value.type || '';
+                    let actualValue = value.value !== undefined ? value.value : '';
+                    
+                    // 尝试自动判断输入类型
+                    let inputType = 'text';
+                    if (typeof actualValue === 'number') {
+                        inputType = 'number';
+                    } else if (typeof actualValue === 'boolean') {
+                        inputType = 'checkbox';
+                    }
+                    
+                    // 构建说明文字，将name和type显示在一起
+                    let descriptionParts = [];
+                    if (nameValue) {
+                        descriptionParts.push(nameValue);
+                    }
+                    if (typeValue) {
+                        descriptionParts.push(`类型: ${typeValue}`);
+                    }
+                    const descriptionText = descriptionParts.join(' | ');
+                    
+                    if (inputType === 'checkbox') {
+                        // 复选框类型
+                        html += `
+                            <div class="mb-3 form-check">
+                                <input type="${inputType}" class="form-check-input" id="${fieldName}" name="${fieldName}" ${actualValue ? 'checked' : ''}>
+                                <label class="form-check-label fw-medium" for="${fieldName}">${key}</label>
+                                ${descriptionText ? `<div class="form-text">${descriptionText}</div>` : ''}
+                            </div>
+                        `;
+                    } else {
+                        // 文本、数字等类型
+                        html += `
+                            <div class="mb-3">
+                                <label for="${fieldName}" class="form-label fw-medium">${key}</label>
+                                <input type="${inputType}" class="form-control" id="${fieldName}" name="${fieldName}" placeholder="${typeof actualValue === 'string' ? actualValue : JSON.stringify(actualValue)}" value="${typeof actualValue === 'string' ? actualValue : actualValue}" ${inputType === 'number' ? 'step="any"' : ''}>
+                                ${descriptionText ? `<div class="form-text">${descriptionText}</div>` : ''}
+                            </div>
+                        `;
+                    }
+                } else {
+                    // 这是一个嵌套对象，需要生成卡片
+                    // 提取type属性（如果存在），用于说明
+                    let typeValue = value.type || '';
+                    
+                    // 生成卡片
+                    const cardId = `card-${Math.random().toString(36).substr(2, 9)}`;
+                    
+                    // 构建卡片标题，只显示字段名和type（如果有）
+                    let cardTitle = key;
+                    if (typeValue) {
+                        cardTitle += ` <span class="badge bg-secondary ms-2">${typeValue}</span>`;
+                    }
+                    
+                    html += `
+                        <div class="card mb-3">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center cursor-pointer" onclick="toggleCard('${cardId}')">
+                                <h6 class="mb-0 text-primary">
+                                    <i id="icon-${cardId}" class="bi bi-caret-down-fill"></i> ${cardTitle}
+                                </h6>
+                                <span class="text-muted" style="font-size: 0.85rem;">
+                                    <i class="bi bi-chevron-up"></i>
+                                </span>
+                            </div>
+                            <div id="${cardId}" class="card-body p-3">
+                                ${generateFields(value, fieldName, key)}
+                            </div>
+                        </div>
+                    `;
                 }
-                
-                html += `
-                    <div class="card mb-3">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center cursor-pointer" onclick="toggleCard('${cardId}')">
-                            <h6 class="mb-0 text-primary">
-                                <i id="icon-${cardId}" class="bi bi-caret-down-fill"></i> ${cardTitle}
-                            </h6>
-                            <span class="text-muted" style="font-size: 0.85rem;">
-                                <i class="bi bi-chevron-up"></i>
-                            </span>
-                        </div>
-                        <div id="${cardId}" class="card-body p-3">
-                            ${generateFields(value, fieldName, key)}
-                        </div>
-                    </div>
-                `;
             } else if (Array.isArray(value)) {
                 // 数组字段
                 html += `
                     <div class="mb-3">
-                        <label for="${fieldName}" class="form-label fw-medium">${fieldLabel} (数组)</label>
-                        ${fieldType ? `<div class="form-text mb-1">类型: ${fieldType}</div>` : ''}
+                        <label for="${fieldName}" class="form-label fw-medium">${key} (数组)</label>
                         <textarea class="form-control" id="${fieldName}" name="${fieldName}" rows="3" placeholder="请输入JSON格式的数组"></textarea>
                         <div class="form-text">例如: ["value1", "value2"]</div>
                     </div>
                 `;
             } else {
                 // 基本类型字段
-                // 检查是否包含type属性（如果是对象值的话）
-                // 注意：基本类型字段可能直接包含type属性，而不是嵌套对象
                 let actualValue = value;
-                if (value && typeof value === 'object') {
-                    fieldType = value.type || '';
-                    // 如果value是对象，尝试获取其实际值
-                    if (value.value !== undefined) {
-                        actualValue = value.value;
-                    }
-                    // 确保不使用name属性作为字段标签
-                    // 无论value是什么结构，都使用key作为字段标签
-                    // 显式不使用value.name作为字段标签
-                }
                 
                 // 尝试自动判断输入类型
                 let inputType = 'text';
@@ -219,16 +245,13 @@ function generateToolForm(paramSchema) {
                 
                 // 构建类型描述
                 let typeDescription = `类型: ${typeof actualValue}`;
-                if (fieldType) {
-                    typeDescription += `, TYPE: ${fieldType}`;
-                }
                 
                 if (inputType === 'checkbox') {
                     // 复选框类型
                     html += `
                         <div class="mb-3 form-check">
                             <input type="${inputType}" class="form-check-input" id="${fieldName}" name="${fieldName}" ${actualValue ? 'checked' : ''}>
-                            <label class="form-check-label fw-medium" for="${fieldName}">${fieldLabel}</label>
+                            <label class="form-check-label fw-medium" for="${fieldName}">${key}</label>
                             <div class="form-text">${typeDescription}</div>
                         </div>
                     `;
@@ -236,7 +259,7 @@ function generateToolForm(paramSchema) {
                     // 文本、数字等类型
                     html += `
                         <div class="mb-3">
-                            <label for="${fieldName}" class="form-label fw-medium">${fieldLabel}</label>
+                            <label for="${fieldName}" class="form-label fw-medium">${key}</label>
                             <input type="${inputType}" class="form-control" id="${fieldName}" name="${fieldName}" placeholder="${typeof actualValue === 'string' ? actualValue : JSON.stringify(actualValue)}" value="${typeof actualValue === 'string' ? actualValue : actualValue}" ${inputType === 'number' ? 'step="any"' : ''}>
                             <div class="form-text">${typeDescription}</div>
                         </div>
@@ -280,16 +303,26 @@ async function executeTool() {
         }
         
         // 显示加载状态
-        showExecutionResult('加载中...', true);
+        showExecutionResult('正在执行工具，请稍候...', true);
+        
+        // 构建请求报文，将参数放在PARAM对象下
+        const requestPayload = {
+            TOOL_ID: currentTool.id,
+            PARAM: params
+        };
+        
+        // 显示请求报文（用于调试）
+        console.log('请求报文:', JSON.stringify(requestPayload, null, 2));
         
         // 执行工具
-        const response = await axios.post(`/api/tools/${currentTool.id}/use`, params);
+        const response = await axios.post(`/api/tools/${currentTool.id}/use`, requestPayload);
         
         // 显示结果
         showExecutionResult(JSON.stringify(response.data, null, 2));
     } catch (error) {
         console.error('执行工具失败:', error);
-        showExecutionResult('执行失败: ' + (error.response?.data?.detail || error.message), true);
+        const errorMessage = error.response?.data?.detail || error.message;
+        showExecutionResult('执行失败: ' + errorMessage, true);
     }
 }
 
@@ -365,19 +398,29 @@ function showExecutionResult(result, isError = false) {
     resultStatus.textContent = isError ? '失败' : '成功';
     resultStatus.className = `badge ${isError ? 'bg-danger' : 'bg-success'}`;
     
-    // 格式化并高亮JSON结果
-    const formattedResult = formatAndHighlightJSON(result);
-    
-    // 如果是有效的JSON，使用HTML显示，否则使用文本显示
-    if (typeof result === 'string' && result.trim().startsWith('{') && result.trim().endsWith('}')) {
-        resultOutput.innerHTML = formattedResult;
-        resultOutput.className = isError ? 'bg-danger text-white p-3 rounded pre-wrap' : 'bg-light p-3 rounded pre-wrap';
-        resultOutput.style.whiteSpace = 'pre-wrap';
-        resultOutput.style.wordBreak = 'break-word';
-    } else {
-        resultOutput.textContent = result;
-        resultOutput.className = isError ? 'bg-danger text-white p-3 rounded' : 'bg-light p-3 rounded';
+    // 尝试解析并格式化JSON结果
+    let displayContent = result;
+    try {
+        // 如果是字符串，尝试解析为JSON
+        if (typeof result === 'string') {
+            const parsed = JSON.parse(result);
+            displayContent = JSON.stringify(parsed, null, 2);
+        } else if (typeof result === 'object') {
+            // 如果是对象，直接格式化
+            displayContent = JSON.stringify(result, null, 2);
+        }
+    } catch (e) {
+        // 如果解析失败，使用原始内容
+        displayContent = result;
     }
+    
+    // 设置输出内容
+    resultOutput.textContent = displayContent;
+    resultOutput.className = isError ? 'bg-danger text-white p-3 rounded' : 'bg-light p-3 rounded';
+    resultOutput.style.whiteSpace = 'pre-wrap';
+    resultOutput.style.wordBreak = 'break-word';
+    resultOutput.style.maxHeight = '400px';
+    resultOutput.style.overflow = 'auto';
     
     executionResult.style.display = 'block';
     
