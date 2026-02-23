@@ -148,7 +148,7 @@ sap_api.log
 *.log
 
 # Configuration files (contains sensitive information)
-config.py
+utils/config.py
 
 # Project documents (internal documentation)
 .trae/documents/
