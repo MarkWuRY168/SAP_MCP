@@ -13,6 +13,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 
+# 默认端口配置
+ENV WEB_PORT=6680
+ENV MCP_PORT=6688
+
 # 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -33,8 +37,7 @@ COPY . .
 RUN mkdir -p /app/log
 
 # 暴露端口
-EXPOSE 8000
-EXPOSE 8080
+EXPOSE ${WEB_PORT} ${MCP_PORT}
 
 # 设置默认命令为启动Web管理界面
-CMD ["python", "-m", "uvicorn", "web.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "web.main"]

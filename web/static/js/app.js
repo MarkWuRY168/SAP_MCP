@@ -982,15 +982,9 @@ function hideExecutionResult() {
 
 // 测试API连接
 async function testApi() {
-    const testBtn = document.getElementById('testApiBtn');
     const apiStatus = document.getElementById('apiStatus');
-    const originalText = testBtn.textContent;
     
     try {
-        // 禁用按钮，防止重复点击
-        testBtn.disabled = true;
-        testBtn.textContent = '测试中...';
-        
         // 更新状态显示
         apiStatus.innerHTML = '<span class="text-warning">测试中...</span>';
         
@@ -1011,10 +1005,6 @@ async function testApi() {
         // 请求失败
         apiStatus.innerHTML = '<span class="text-danger">请求失败</span>';
         showConfigMessage('接口测试失败: ' + (error.response?.data?.message || error.message), 'danger');
-    } finally {
-        // 恢复按钮状态
-        testBtn.disabled = false;
-        testBtn.textContent = originalText;
     }
 }
 

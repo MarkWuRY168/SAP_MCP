@@ -19,7 +19,7 @@ class SAPConfig(BaseSettings):
 class MCPConfig(BaseSettings):
     """MCP服务器配置模型"""
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 6688
     path: str = "/mcp"
     
     class Config:
@@ -31,7 +31,7 @@ class MCPConfig(BaseSettings):
 class WebConfig(BaseSettings):
     """Web服务器配置模型"""
     host: str = "0.0.0.0"
-    port: int = 8080
+    port: int = 6680
     reload: bool = True
     
     class Config:

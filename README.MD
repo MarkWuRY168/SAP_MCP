@@ -75,7 +75,7 @@ cd Docker
 docker-compose up -d
 ```
 
-访问 Web 管理界面：http://localhost:8080
+访问 Web 管理界面：http://localhost:6680（默认端口）
 
 ### 方式二：手动部署
 
@@ -99,7 +99,7 @@ cp utils/config.example.py utils/config.py
 python web/main.py
 ```
 
-访问 Web 管理界面：http://localhost:8080
+访问 Web 管理界面：http://localhost:6680（默认端口）
 
 ## 📖 详细文档
 
@@ -107,11 +107,11 @@ python web/main.py
 
 ## 🔗 访问地址
 
-- **Web 管理界面**: http://localhost:8080
-- **MCP 服务器**: http://localhost:8000/mcp
-- **API 文档 (Swagger UI)**: http://localhost:8080/docs
-- **API 文档 (ReDoc)**: http://localhost:8080/redoc
-- **健康检查**: http://localhost:8080/api/health
+- **Web 管理界面**: http://localhost:6680
+- **MCP 服务器**: http://localhost:6688/mcp
+- **API 文档 (Swagger UI)**: http://localhost:6680/docs
+- **API 文档 (ReDoc)**: http://localhost:6680/redoc
+- **健康检查**: http://localhost:6680/api/health  
 
 ## 🛡️ 安全性
 

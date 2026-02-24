@@ -156,91 +156,84 @@ async def api_get_config():
 def save_config_to_file():
     """将配置保存到文件中"""
     try:
-        config_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.py")
+        # 保存到 utils/config.py
+        utils_config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "utils", "config.py")
         
-        with open(config_file_path, "w", encoding="utf-8") as f:
-            f.write("# SAP MCP 配置文件\nimport os\n\n")
-            f.write("# SAP接口配置\n")
-            f.write("SAP_CONFIG = {\n")
-            for key, value in SAP_CONFIG.items():
-                # 检查是否有环境变量设置
-                env_var = None
-                if key == "base_url":
-                    env_var = "SAP_BASE_URL"
-                elif key == "client_id":
-                    env_var = "SAP_CLIENT_ID"
-                elif key == "sap-user":
-                    env_var = "SAP_USER"
-                elif key == "sap-password":
-                    env_var = "SAP_PASSWORD"
-                elif key == "timeout":
-                    env_var = "SAP_TIMEOUT"
-                
-                if env_var:
-                    if isinstance(value, str):
-                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\"),\n")
-                    else:
-                        f.write(f"    \"{key}\": int(os.environ.get(\"{env_var}\", \"{value}\")) if isinstance(value, int) else os.environ.get(\"{env_var}\", \"{value}\"),\n")
-                else:
-                    if isinstance(value, str):
-                        f.write(f"    \"{key}\": \"{value}\",\n")
-                    else:
-                        f.write(f"    \"{key}\": {value},\n")
-            f.write("}\n\n")
-            
-            f.write("# MCP服务器配置\n")
-            f.write("MCP_SERVER_CONFIG = {\n")
-            for key, value in MCP_SERVER_CONFIG.items():
-                # 检查是否有环境变量设置
-                env_var = None
-                if key == "host":
-                    env_var = "MCP_HOST"
-                elif key == "port":
-                    env_var = "MCP_PORT"
-                elif key == "path":
-                    env_var = "MCP_PATH"
-                
-                if env_var:
-                    if isinstance(value, str):
-                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\"),\n")
-                    else:
-                        f.write(f"    \"{key}\": int(os.environ.get(\"{env_var}\", \"{value}\")) if isinstance(value, int) else os.environ.get(\"{env_var}\", \"{value}\"),\n")
-                else:
-                    if isinstance(value, str):
-                        f.write(f"    \"{key}\": \"{value}\",\n")
-                    else:
-                        f.write(f"    \"{key}\": {value},\n")
-            f.write("}\n\n")
-            
-            f.write("# WEB服务器配置\n")
-            f.write("WEB_CONFIG = {\n")
-            for key, value in WEB_CONFIG.items():
-                # 检查是否有环境变量设置
-                env_var = None
-                if key == "host":
-                    env_var = "WEB_HOST"
-                elif key == "port":
-                    env_var = "WEB_PORT"
-                elif key == "reload":
-                    env_var = "WEB_RELOAD"
-                
-                if env_var:
-                    if isinstance(value, str):
-                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\"),\n")
-                    elif isinstance(value, bool):
-                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\").lower() == \"true\" if os.environ.get(\"{env_var}\") else {value},\n")
-                    else:
-                        f.write(f"    \"{key}\": int(os.environ.get(\"{env_var}\", \"{value}\")) if isinstance(value, int) else os.environ.get(\"{env_var}\", \"{value}\"),\n")
-                else:
-                    if isinstance(value, str):
-                        f.write(f"    \"{key}\": \"{value}\",\n")
-                    elif isinstance(value, bool):
-                        f.write(f"    \"{key}\": {value},\n")
-                    else:
-                        f.write(f"    \"{key}\": {value},\n")
-            f.write("}\n")
+        # 重写整个配置文件
+        config_content = f'''from pydantic_settings import BaseSettings
+from typing import Optional
+
+
+class SAPConfig(BaseSettings):
+    """SAP接口配置模型"""
+    base_url: str = "{SAP_CONFIG["base_url"]}"
+    client_id: int = {SAP_CONFIG["client_id"]}
+    sap_user: str = "{SAP_CONFIG["sap-user"]}"
+    sap_password: str = "{SAP_CONFIG["sap-password"]}"
+    timeout: int = {SAP_CONFIG["timeout"]}
+    
+    class Config:
+        env_prefix = "SAP_"
+        env_file = ".env"
+        case_sensitive = False
+
+
+class MCPConfig(BaseSettings):
+    """MCP服务器配置模型"""
+    host: str = "{MCP_SERVER_CONFIG["host"]}"
+    port: int = {MCP_SERVER_CONFIG["port"]}
+    path: str = "{MCP_SERVER_CONFIG["path"]}"
+    
+    class Config:
+        env_prefix = "MCP_"
+        env_file = ".env"
+        case_sensitive = False
+
+
+class WebConfig(BaseSettings):
+    """Web服务器配置模型"""
+    host: str = "{WEB_CONFIG["host"]}"
+    port: int = {WEB_CONFIG["port"]}
+    reload: bool = {str(WEB_CONFIG["reload"])}
+    
+    class Config:
+        env_prefix = "WEB_"
+        env_file = ".env"
+        case_sensitive = False
+
+
+# 创建配置实例
+sap_config = SAPConfig()
+mcp_config = MCPConfig()
+web_config = WebConfig()
+
+# 转换为字典格式，保持向后兼容
+SAP_CONFIG = {{
+    "base_url": sap_config.base_url,
+    "client_id": sap_config.client_id,
+    "sap-user": sap_config.sap_user,
+    "sap-password": sap_config.sap_password,
+    "timeout": sap_config.timeout,
+}}
+
+MCP_SERVER_CONFIG = {{
+    "host": mcp_config.host,
+    "port": mcp_config.port,
+    "path": mcp_config.path,
+}}
+
+WEB_CONFIG = {{
+    "host": web_config.host,
+    "port": web_config.port,
+    "reload": web_config.reload,
+}}
+'''
         
-        logger.info(f"配置已保存到文件: {config_file_path}")
+        # 写入文件
+        with open(utils_config_path, "w", encoding="utf-8") as f:
+            f.write(config_content)
+        
+        logger.info(f"配置已保存到文件: {utils_config_path}")
         return True
     except Exception as e:
         logger.error(f"保存配置到文件失败: {str(e)}")
@@ -571,9 +564,11 @@ async def root():
 # 启动服务器
 if __name__ == "__main__":
     logger.info("启动SAP MCP Web管理服务器")
+    # 从环境变量获取端口配置，如果没有设置则使用配置文件中的值
+    web_port = int(os.getenv('WEB_PORT', WEB_CONFIG['port']))
     uvicorn.run(
         "web.main:app",
         host=WEB_CONFIG["host"],
-        port=WEB_CONFIG["port"],
+        port=web_port,
         reload=WEB_CONFIG["reload"]
     )
