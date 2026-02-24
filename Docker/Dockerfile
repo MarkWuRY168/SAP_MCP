@@ -1,6 +1,6 @@
 # SAP MCP Dockerfile
 # 使用官方Python镜像作为基础
-FROM python:3.11-slim
+FROM python:latest
 
 # 设置工作目录
 WORKDIR /app
