@@ -54,11 +54,10 @@ function renderToolList(tools) {
         <a href="#" class="list-group-item list-group-item-action" data-tool-id="${tool.TOOL_ID}">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h6 class="mb-1 fw-bold">${tool.TOOL_ID}</h6>
+                <h6 class="mb-1 fw-bold">${tool.TOOL_ID}</h6>
                     <p class="mb-1 text-muted small">${tool.DESCRIPTION || '无描述'}</p>
-                    ${tool.TOOL_NAME ? `<p class="mb-0 text-primary small">${tool.TOOL_NAME}</p>` : ''}
+                    ${tool.TOOL_NAME ? `<p class="mb-1 text-muted small">${tool.TOOL_NAME}</p>` : ''}
                 </div>
-                <span class="badge bg-primary">${tool.TOOL_ID}</span>
             </div>
         </a>
     `).join('');
@@ -491,7 +490,8 @@ async function loadConfigData() {
         if (result.config && result.sap_config) {
             configData = {
                 sap: result.sap_config,
-                mcp: result.config
+                mcp: result.config,
+                web: result.web_config
             };
             renderConfigForm();
         } else {
@@ -517,6 +517,13 @@ function renderConfigForm() {
     document.getElementById('mcpHost').value = configData.mcp.host;
     document.getElementById('mcpPort').value = configData.mcp.port;
     document.getElementById('mcpPath').value = configData.mcp.path;
+    
+    // 设置WEB服务器配置
+    if (configData.web) {
+        document.getElementById('webHost').value = configData.web.host;
+        document.getElementById('webPort').value = configData.web.port;
+        document.getElementById('webReload').checked = configData.web.reload;
+    }
 }
 
 // 加载服务状态
@@ -747,14 +754,14 @@ function bindEventListeners() {
     // 关闭结果按钮
     document.getElementById('closeResultBtn').addEventListener('click', hideExecutionResult);
     
-    // 配置表单保存按钮
-    document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+    // 配置表单保存按钮 - 使用可选链操作符，因为按钮已被替换为每个配置块的独立按钮
+    document.getElementById('saveConfigBtn')?.addEventListener('click', saveConfig);
     
-    // 配置表单重置按钮
-    document.getElementById('resetConfigBtn').addEventListener('click', renderConfigForm);
+    // 配置表单重置按钮 - 使用可选链操作符，因为按钮已被替换为每个配置块的独立按钮
+    document.getElementById('resetConfigBtn')?.addEventListener('click', renderConfigForm);
     
-    // 接口测试按钮
-    document.getElementById('testApiBtn').addEventListener('click', testApi);
+    // 接口测试按钮 - 使用可选链操作符，因为按钮已被替换为每个配置块的独立按钮
+    document.getElementById('testApiBtn')?.addEventListener('click', testApi);
     
     // 密码显示/隐藏切换按钮
     document.getElementById('togglePassword')?.addEventListener('click', function() {
@@ -804,7 +811,8 @@ async function saveConfig() {
         const formData = new FormData(document.getElementById('configForm'));
         const config = {
             sap: {},
-            mcp: {}
+            mcp: {},
+            web: {}
         };
         
         // 解析表单数据
@@ -815,10 +823,15 @@ async function saveConfig() {
             }
         }
         
+        // 处理复选框
+        const webReloadCheckbox = document.getElementById('webReload');
+        config.web.reload = webReloadCheckbox.checked;
+        
         // 转换数值类型
         config.sap.client_id = parseInt(config.sap.client_id);
         config.sap.timeout = parseInt(config.sap.timeout);
         config.mcp.port = parseInt(config.mcp.port);
+        config.web.port = parseInt(config.web.port);
         
         // 发送保存请求
         const response = await axios.post('/api/config', config);
@@ -831,6 +844,88 @@ async function saveConfig() {
     } catch (error) {
         console.error('保存配置失败:', error);
         showConfigMessage('配置保存失败: ' + (error.response?.data?.detail || error.message), 'danger');
+    }
+}
+
+// 保存单个配置块
+async function saveConfigSection(section) {
+    try {
+        // 获取该配置块的所有字段
+        const formData = new FormData(document.getElementById('configForm'));
+        const config = {};
+        config[section] = {};
+        
+        // 解析该配置块的表单数据
+        for (const [name, value] of formData.entries()) {
+            const [fieldSection, key] = name.split('.');
+            if (fieldSection === section && key) {
+                config[section][key] = value;
+            }
+        }
+        
+        // 处理复选框（仅WEB配置）
+        if (section === 'web') {
+            const webReloadCheckbox = document.getElementById('webReload');
+            config.web.reload = webReloadCheckbox.checked;
+        }
+        
+        // 转换数值类型
+        if (section === 'sap') {
+            config.sap.client_id = parseInt(config.sap.client_id);
+            config.sap.timeout = parseInt(config.sap.timeout);
+        } else if (section === 'mcp') {
+            config.mcp.port = parseInt(config.mcp.port);
+        } else if (section === 'web') {
+            config.web.port = parseInt(config.web.port);
+        }
+        
+        // 发送保存请求
+        const response = await axios.post('/api/config', config);
+        
+        // 显示保存成功消息
+        showConfigMessage(`${section.toUpperCase()}配置保存成功`, 'success');
+        
+        // 更新配置数据
+        if (!configData) {
+            configData = {
+                sap: {},
+                mcp: {},
+                web: {}
+            };
+        }
+        configData[section] = config[section];
+    } catch (error) {
+        console.error(`保存${section}配置失败:`, error);
+        showConfigMessage(`${section.toUpperCase()}配置保存失败: ` + (error.response?.data?.detail || error.message), 'danger');
+    }
+}
+
+// 重置单个配置块
+function resetConfigSection(section) {
+    try {
+        // 从配置数据中获取该配置块的原始值
+        if (configData && configData[section]) {
+            const sectionConfig = configData[section];
+            
+            // 重置该配置块的所有字段
+            for (const [key, value] of Object.entries(sectionConfig)) {
+                const fieldId = `${section}${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                const element = document.getElementById(fieldId);
+                
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = value;
+                    } else {
+                        element.value = value;
+                    }
+                }
+            }
+            
+            showConfigMessage(`${section.toUpperCase()}配置已重置`, 'info');
+        }
+    } catch (error) {
+        console.error(`重置${section}配置失败:`, error);
+        showConfigMessage(`${section.toUpperCase()}配置重置失败: ${error.message}`, 'danger');
     }
 }
 

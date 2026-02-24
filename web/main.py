@@ -145,11 +145,12 @@ async def api_get_config():
     """获取服务器配置
     
     Returns:
-        dict: 包含MCP服务器配置和SAP配置的字典
+        dict: 包含MCP服务器配置、SAP配置和WEB配置的字典
     """
     return {
         "config": MCP_SERVER_CONFIG,
-        "sap_config": SAP_CONFIG
+        "sap_config": SAP_CONFIG,
+        "web_config": WEB_CONFIG
     }
 
 def save_config_to_file():
@@ -209,6 +210,34 @@ def save_config_to_file():
                         f.write(f"    \"{key}\": \"{value}\",\n")
                     else:
                         f.write(f"    \"{key}\": {value},\n")
+            f.write("}\n\n")
+            
+            f.write("# WEB服务器配置\n")
+            f.write("WEB_CONFIG = {\n")
+            for key, value in WEB_CONFIG.items():
+                # 检查是否有环境变量设置
+                env_var = None
+                if key == "host":
+                    env_var = "WEB_HOST"
+                elif key == "port":
+                    env_var = "WEB_PORT"
+                elif key == "reload":
+                    env_var = "WEB_RELOAD"
+                
+                if env_var:
+                    if isinstance(value, str):
+                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\"),\n")
+                    elif isinstance(value, bool):
+                        f.write(f"    \"{key}\": os.environ.get(\"{env_var}\", \"{value}\").lower() == \"true\" if os.environ.get(\"{env_var}\") else {value},\n")
+                    else:
+                        f.write(f"    \"{key}\": int(os.environ.get(\"{env_var}\", \"{value}\")) if isinstance(value, int) else os.environ.get(\"{env_var}\", \"{value}\"),\n")
+                else:
+                    if isinstance(value, str):
+                        f.write(f"    \"{key}\": \"{value}\",\n")
+                    elif isinstance(value, bool):
+                        f.write(f"    \"{key}\": {value},\n")
+                    else:
+                        f.write(f"    \"{key}\": {value},\n")
             f.write("}\n")
         
         logger.info(f"配置已保存到文件: {config_file_path}")
@@ -222,7 +251,7 @@ async def api_save_config(config_data: dict):
     """保存服务器配置
     
     Args:
-        config_data: 包含配置数据的字典，可包含sap和mcp两个键
+        config_data: 包含配置数据的字典，可包含sap、mcp和web三个键
     
     Returns:
         dict: 包含保存结果和更新后配置的字典
@@ -235,6 +264,8 @@ async def api_save_config(config_data: dict):
             SAP_CONFIG.update(config_data["sap"])
         if "mcp" in config_data:
             MCP_SERVER_CONFIG.update(config_data["mcp"])
+        if "web" in config_data:
+            WEB_CONFIG.update(config_data["web"])
         
         # 保存配置到文件
         save_config_to_file()
@@ -243,7 +274,8 @@ async def api_save_config(config_data: dict):
         return {
             "message": "配置保存成功",
             "config": MCP_SERVER_CONFIG,
-            "sap_config": SAP_CONFIG
+            "sap_config": SAP_CONFIG,
+            "web_config": WEB_CONFIG
         }
     except Exception as e:
         return await handle_error(e, "保存配置失败")
