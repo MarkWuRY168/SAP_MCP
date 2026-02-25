@@ -7,9 +7,8 @@
 1. [前置条件](#前置条件)
 2. [SAP Http接口服务激活](#sap-http接口服务激活)
 3. [手动部署](#手动部署)
-4. [Docker部署](#docker部署)
-5. [使用指南](#使用指南)
-6. [常见问题](#常见问题)
+4. [使用指南](#使用指南)
+5. [常见问题](#常见问题)
 
 ---
 
@@ -165,68 +164,6 @@ python -m uvicorn web.main:app --host 0.0.0.0 --port 8080
 
 ---
 
-## Docker部署
-
-### 2.1 前置条件
-
-- 系统已安装 Docker
-- 系统已安装 Docker Compose
-- 网络连接正常（需要访问 Docker Hub）
-
-### 2.2 使用 Docker Compose 构建和运行
-
-```bash
-# 进入 Docker 文件夹
-cd Docker
-
-# 构建并运行所有服务
-docker-compose up -d
-
-# 查看所有服务的日志
-docker-compose logs -f
-
-# 查看特定服务的日志
-docker-compose logs -f sap-mcp-web
-
-# 停止所有服务
-docker-compose down
-
-# 停止并移除卷
-docker-compose down -v
-```
-
-### 2.3 服务说明
-
-- **sap-mcp-server**: SAP MCP 服务器运行在端口 8000
-- **sap-mcp-web**: Web 管理界面运行在端口 8080
-
-### 2.4 访问应用
-
-1. **Web 管理界面**: 打开浏览器并导航到 `http://localhost:8080`
-2. **MCP 服务器**: 服务器可通过 `http://localhost:8000/mcp` 进行客户端连接
-3. **API文档**: 
-   - Swagger UI: `http://localhost:8080/docs`
-   - ReDoc: `http://localhost:8080/redoc`
-4. **健康检查**: `http://localhost:8080/api/health`
-
-### 2.5 配置说明
-
-`config.py` 文件被挂载为两个容器的卷，因此您可以在主机上修改它，更改将反映在容器中。
-
-### 2.6 日志说明
-
-日志存储在名为 `log_volume` 的 Docker 卷中，可从容器内的 `/app/log/sap_api.log` 访问。
-
-### 2.7 自定义配置
-
-您可以通过修改 `Docker` 文件夹中的以下文件来自定义 Docker 配置：
-
-- `Dockerfile`: 用于自定义基础镜像和构建过程
-- `docker-compose.yml`: 用于自定义服务、端口、卷和环境变量
-- `.dockerignore`: 用于从 Docker 构建上下文中排除文件
-
----
-
 ## 使用指南
 
 ### 访问 Web 管理界面
@@ -277,57 +214,6 @@ docker-compose down -v
 ---
 
 ## 常见问题
-
-### Docker 部署常见问题
-
-#### 问题 1：无法连接到 Docker Hub
-
-如果遇到类似以下的错误：
-```
-failed to do request: Head "https://registry-1.docker.io/v2/library/ubuntu/manifests/22.04": dial tcp: connectex: A connection attempt failed
-```
-
-**解决方案：**
-
-1. **检查网络连接**：确保您的网络可以访问 Docker Hub
-2. **配置 Docker 镜像加速器**（推荐）：
-   - 打开 Docker Desktop
-   - 进入 Settings > Docker Engine
-   - 添加以下配置：
-   ```json
-   {
-     "registry-mirrors": [
-       "https://docker.mirrors.ustc.edu.cn",
-       "https://hub-mirror.c.163.com",
-       "https://mirror.baidubce.com"
-     ]
-   }
-   ```
-   - 点击 "Apply & Restart"
-
-3. **使用代理**（如果需要）：
-   - 打开 Docker Desktop
-   - 进入 Settings > Resources > Proxies
-   - 配置您的代理服务器
-
-4. **手动拉取镜像**：
-   ```bash
-   docker pull ubuntu:22.04
-   docker-compose up -d
-   ```
-
-#### 问题 2：构建失败
-
-如果构建过程中出现错误，可以尝试：
-
-```bash
-# 清理之前的构建缓存
-docker-compose down
-docker system prune -a
-
-# 重新构建
-docker-compose up -d --build
-```
 
 ### MCP 服务无法访问
 

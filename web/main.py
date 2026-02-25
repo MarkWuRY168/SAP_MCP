@@ -566,7 +566,7 @@ if __name__ == "__main__":
     logger.info("启动SAP MCP Web管理服务器")
     # 从环境变量获取端口配置，如果没有设置则使用配置文件中的值
     web_port = int(os.getenv('WEB_PORT', WEB_CONFIG['port']))
-    # 从环境变量获取主机配置，Docker环境使用0.0.0.0
+    # 从环境变量获取主机配置
     web_host = os.getenv('WEB_HOST', WEB_CONFIG["host"])
     uvicorn.run(
         "web.main:app",
