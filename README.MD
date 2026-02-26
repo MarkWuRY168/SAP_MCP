@@ -8,7 +8,7 @@
 
 Publish SAP system tools as MCP services, providing solutions for integrating AI capabilities into SAP systems
 
-**Languages:** [中文](README_ZH.MD) | [日本語](README_JA.MD)
+**Languages:** [中文](README/README_ZH.MD) | [日本語](README/README_JA.MD)
 
 </div>
 

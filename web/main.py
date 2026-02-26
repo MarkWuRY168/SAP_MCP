@@ -289,6 +289,22 @@ async def api_test_api():
         # 调用id=TOOL_LIST的接口
         result = await test_client.get(params={"id": "TOOL_LIST"})
         
+        # 检查SAP接口返回的错误信息
+        if isinstance(result, dict):
+            # 检查常见的错误字段
+            error_fields = ['error', 'ERROR', 'message', 'MESSAGE', 'error_message', 'ERROR_MESSAGE']
+            has_error = any(field in result for field in error_fields)
+            
+            if has_error:
+                # 提取错误信息
+                error_msg = result.get('error') or result.get('ERROR') or result.get('message') or result.get('MESSAGE') or result.get('error_message') or result.get('ERROR_MESSAGE')
+                logger.error(f"SAP接口返回错误: {error_msg}")
+                return {
+                    "message": f"SAP接口测试失败: {error_msg}",
+                    "success": False,
+                    "error": error_msg
+                }
+        
         logger.info(f"SAP接口测试成功: {json.dumps(result, ensure_ascii=False)}")
         return {
             "message": "SAP接口测试成功",

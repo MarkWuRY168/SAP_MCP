@@ -453,32 +453,35 @@ function bindNavigationListeners() {
 
 // 页面切换函数
 function switchPage(pageName) {
+    console.log('switchPage 被调用，pageName:', pageName);
     // 隐藏所有页面
     document.getElementById('toolsPage').style.display = 'none';
     document.getElementById('configPage').style.display = 'none';
     document.getElementById('servicePage').style.display = 'none';
     document.getElementById('logsPage').style.display = 'none';
     
+    console.log('开始显示页面:', pageName);
     // 显示对应的页面
-    if (pageName === '工具管理') {
+    if (pageName == '工具管理') {
         document.getElementById('toolsPage').style.display = 'block';
         // 加载工具列表
         loadToolList();
-    } else if (pageName === '服务器配置') {
+    } else if (pageName == '服务器配置') {
         document.getElementById('configPage').style.display = 'block';
         // 确保配置数据已加载
         if (!configData) {
             loadConfigData();
         }
-    } else if (pageName === '服务管理') {
+    } else if (pageName == '服务管理') {
         document.getElementById('servicePage').style.display = 'block';
         // 加载服务状态
         loadServiceStatus();
-    } else if (pageName === '日志查看') {
+    } else if (pageName == '日志查看') {
         document.getElementById('logsPage').style.display = 'block';
         // 加载日志
         loadLogs();
     }
+    console.log('页面切换完成');
 }
 
 // 加载配置数据
@@ -504,7 +507,12 @@ async function loadConfigData() {
 
 // 渲染配置表单
 function renderConfigForm() {
-    if (!configData) return;
+    console.log('renderConfigForm 被调用');
+    console.log('configData:', configData);
+    if (!configData) {
+        console.log('configData 为空，跳过渲染');
+        return;
+    }
     
     // 设置SAP配置
     document.getElementById('sapBaseUrl').value = configData.sap.base_url;
@@ -938,10 +946,13 @@ function showConfigMessage(message, type = 'info') {
         </div>
     `;
     
-    // 3秒后自动隐藏消息
+    // 滚动到消息区域，确保用户能看到
+    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    // 5秒后自动隐藏消息（增加显示时间）
     setTimeout(() => {
         messageDiv.innerHTML = '';
-    }, 3000);
+    }, 5000);
 }
 
 // 折叠/展开卡片
