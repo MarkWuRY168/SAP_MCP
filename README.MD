@@ -8,7 +8,7 @@
 
 Publish SAP system tools as MCP services, providing solutions for integrating AI capabilities into SAP systems
 
-**Languages:** [中文](README/README_ZH.MD) | [日本語](README/README_JA.MD)
+**Languages:** [中文](/DOC/README_ZH.MD) | [日本語](/DOC/README_JA.MD)
 
 </div>
 
@@ -21,16 +21,14 @@ Publish SAP system tools as MCP services, providing solutions for integrating AI
 - **Intelligent Tool Detail Query**: Leverage AI capabilities to obtain comprehensive tool details through tool IDs, including structured input/output parameters and usage patterns
 - **AI-Enhanced Tool Execution**: Apply AI-driven data transformation to convert inputs into SAP-recognizable formats, calling SAP_MCP tools to provide optimized execution results
 
+### Project Advantages
+- Deploy once, use long-term. Manage tool lists through configuration tables in SAP system without needing to update code each time
+
 ### Enhanced Features
-- **Health Check**: Added health check endpoints to monitor service status and SAP interface connection status
-- **Environment Variable Support**: Support configuring sensitive information through environment variables for improved security
-- **Log Rotation**: Implemented automatic log file rotation to prevent log files from becoming too large
-- **Performance Optimization**:
-  - Added caching mechanisms to reduce duplicate requests
-  - Improved HTTP client with connection pooling and retry mechanisms
-  - Implemented exponential backoff strategy to improve request success rates
-- **API Documentation**: Integrated FastAPI's automatic documentation generation feature, accessible via `/docs` and `/redoc`
-- **Code Structure Optimization**: Refactored code structure, removed duplicate code, added utility function modules
+- This service enables integration with multiple AI tools:
+  - Chat tools (e.g., ChatGPT, Cherry Studio)
+  - Programming tools (e.g., Cursor, Claude Code)
+  - Platform tools (e.g., LangChain, Dify)
 
 ## 🎨 Web Management Interface
 
@@ -43,6 +41,7 @@ Publish SAP system tools as MCP services, providing solutions for integrating AI
 ### Configuration Management
 - SAP system configuration (Base URL, Client ID, username, password, timeout)
 - MCP server configuration (host, port, path)
+- Web management interface configuration (port, path)
 - Real-time configuration file saving
 - Interface connection testing functionality
 
@@ -57,40 +56,9 @@ Publish SAP system tools as MCP services, providing solutions for integrating AI
 - Clear logs after confirmation
 - Real-time log updates
 
-## 🛠️ Quick Start
-
-### Prerequisites
-
-- Python 3.8 or higher
-- SAP system administrator privileges
-
 ### Deployment
 
-```bash
-# Clone project
-git clone https://github.com/MarkWuRY168/SAP_MCP
-cd SAP_MCP
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure project
-cp utils/config.example.py utils/config.py
-# Edit configuration file...
-
-# Start service
-python web/main.py
-```
-
-Access Web Management Interface: http://localhost:6680 (default port)
-
-## 📖 Detailed Documentation
-
-For detailed installation, configuration, and usage steps, please refer to: [User Guide](Doc/USAGE.md)
+For detailed installation, configuration, and usage steps, please refer to: [User Guide](/Doc/USAGE/USAGE_EN.md)
 
 ## 🔗 Access Addresses
 

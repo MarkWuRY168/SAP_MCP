@@ -22,17 +22,14 @@
 - **智能工具详情查询**：借助 AI 能力通过工具 ID 获取全面的工具详情，包括结构化的输入/输出参数和使用模式
 - **AI 增强的工具执行**：应用 AI 驱动的数据转换将输入转换为 SAP 可识别的格式，调用 SAP_MCP 工具提供优化的执行结果
 
+### 项目优势
+- 一次部署，长期使用。通过在SAP系统中配置表管理工具列表，无需每次更新代码
+  
 ### 增强功能
-
-- **健康检查**：添加了健康检查端点，可监控服务状态和 SAP 接口连接状态
-- **环境变量支持**：支持通过环境变量配置敏感信息，提高安全性
-- **日志轮转**：实现了日志文件自动轮转，避免日志文件过大
-- **性能优化**：
-  - 添加了缓存机制，减少重复请求
-  - 改进了 HTTP 客户端，使用连接池和重试机制
-  - 实现了指数退避策略，提高请求成功率
-- **API 文档**：集成了 FastAPI 的自动文档生成功能，可通过 `/docs` 和 `/redoc` 访问
-- **代码结构优化**：重构了代码结构，移除了重复代码，添加了工具函数模块
+- 本服务可以使多种AI工具集成：
+  - 聊天工具（如ChatGPT,Cheery Studio）
+  - 编程工具（如Curse,Claude Code）
+  - 平台工具（如Langchain,Dify）
 
 ## 🎨 Web 管理界面
 
@@ -45,6 +42,7 @@
 ### 配置管理
 - SAP 系统配置（Base URL、Client ID、用户名、密码、超时）
 - MCP 服务器配置（主机、端口、路径）
+- WEB 管理界面配置（端口、路径）
 - 实时配置文件保存
 - 接口连接测试功能
 
@@ -59,40 +57,9 @@
 - 确认后清除日志
 - 实时日志更新
 
-## 🛠️ 快速开始
-
-### 前置条件
-
-- Python 3.8 或更高版本
-- 拥有 SAP 系统管理员权限
-
 ### 部署方式
 
-```bash
-# 克隆项目
-git clone https://github.com/MarkWuRY168/SAP_MCP
-cd SAP_MCP
-
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置项目
-cp utils/config.example.py utils/config.py
-# 编辑配置文件...
-
-# 启动服务
-python web/main.py
-```
-
-访问 Web 管理界面：http://localhost:6680（默认端口）
-
-## 📖 详细文档
-
-详细的安装、配置和使用步骤请参考：[操作指南](Doc/USAGE.md)
+详细的安装、配置和使用步骤请参考：[操作指南](/DOC/USAGE/USAGE_ZH.md)
 
 ## 🔗 访问地址
 

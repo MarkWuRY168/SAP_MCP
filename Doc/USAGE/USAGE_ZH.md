@@ -33,19 +33,36 @@
 
 执行SAP请求导入程序，导入开发包。
 
-![SAP请求导入](Doc/Picture/image-1.png)
+![SAP请求导入](/Doc/Picture/image-1.png)
 
 ### 步骤3：SICF激活ZMCP服务
 
 使用事务码 SICF 激活 ZMCP 服务，并测试服务正常使用。
 
-![SICF服务激活](Doc/Picture/image-2.png)
+![SICF服务激活](/Doc/Picture/image-2.png)
 
 ### 步骤4：事务码ZMCP_CONFIG配置SAP工具列表
 
 使用事务码 ZMCP_CONFIG 配置 SAP 工具列表。
 
-![工具配置](Doc/Picture/image-3.png)
+![工具配置](/Doc/Picture/image-3.png)
+
+SAP工具示例数据：
+|MCP工具ID|启用标识|MCP名称|工具描述|版本号|超时时间（秒）|重发次数|优先级|种类|标签|类型|名称|指示器|指示器|创建人员|创建日期|创建时间|修改人员|修改日期|修改时间|
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+|CHECK_MATNR|X|检查物料号|Enter the material number and return the|0|10|0|2|MM|MM|FUNC|BAPI_MATERIAL_EXISTENCECHECK|||||0:00:00|||0:00:00|
+|GET_MATNR_DETAILS|X|取得物料明细|Enter the material number to obtain the|0|10|0|2|MM|MM|FUNC|ZMCP_GET_MATNR_DETAILS|||||0:00:00|||0:00:00|
+|GET_MATNR_FROM_DES|X|取得物料编号|Enter material description and language|0|10|0|2|MM|MM|FUNC|ZMCP_GET_MATNR_FROM_DES|||||0:00:00|||0:00:00|
+|GET_MATNR_WERKS_LIST|X|取得工厂下物料清单|Enter the factory number to obtain all m|0|10|0|2|MM|MM|FUNC|ZMCP_GET_WERKS_MATNR_LIST|||||0:00:00|||0:00:00|
+|GET_MATNR_WERKS_STOC|X|取得工厂下仓库清单|Enter the material number and factory nu|0|10|0|2|MM|MM|FUNC|ZMCP_GET_MATNR_WERKS_STOCK|||||0:00:00|||0:00:00|
+|GET_PERNR_FROM_DES|X|取得员工号|Enter name to obtain employee ID|0|10|0|2|PA|PA|FUNC|ZMCP_GET_PERNR_FROM_DES|||||0:00:00|||0:00:00|
+|GET_PERNR_ORG|X|取得组织信息|Enter the employee ID and query date to|0|10|0|2|PA|PA|FUNC|ZMCP_GET_PERNR_ORG|||||0:00:00|||0:00:00|
+|GET_PERNR_WORK_PLAN|X|取得工作计划|Enter the employee ID and year/month to|0|10|0|2|PT|PT|FUNC|ZMCP_GET_PERNR_WORK_PLAN|||||0:00:00|||0:00:00|
+|GET_WERKS_FROM_DES|X|取得工厂号|Enter factory description to obtain fact|0|10|0|2|MM|MM|FUNC|ZMCP_GET_WERKS_FROM_DES|||||0:00:00|||0:00:00|
+|REVERSE_MATERIAL|X|冲销物料凭证|Enter material voucher information to re|0|10|0|2|MM|MM|FUNC|BAPI_GOODSMVT_CANCEL|||||0:00:00|||0:00:00|
+|TOOL_DETAIL|X|工具明细|Tool detail|0|10|0|0|BASE|ABAP|FUNC|ZIDT_FM_MCP_TOOL_DETAIL|X|X|ADMIN||0:00:00|||0:00:00|
+|TOOL_LIST|X|工具清单|Tool list|0|10|0|0|BASE|ABAP|FUNC|ZIDT_FM_MCP_TOOL_LIST|X|X|ADMIN||0:00:00|||0:00:00|
+|TOOL_USED|X|工具使用|Use tool|0|10|0|0|BASE|ABAP|FUNC|ZIDT_FM_MCP_TOOL_USED|X|X|ADMIN||0:00:00|||0:00:00|
 
 ---
 
@@ -114,8 +131,15 @@ SAP_CONFIG = {
 # MCP 服务器配置
 MCP_SERVER_CONFIG = {
     "host": "0.0.0.0",
-    "port": 8000,
+    "port": 6688,
     "path": "/mcp"
+}
+
+# WEB 服务器配置
+WEB_SERVER_CONFIG = {
+    "host": "0.0.0.0",
+    "port": 6680,
+    "reload": False
 }
 ```
 
@@ -126,10 +150,10 @@ MCP_SERVER_CONFIG = {
 | 环境变量 | 描述 | 默认值 |
 |---------|------|--------|
 | MCP_HOST | MCP服务器主机 | 0.0.0.0 |
-| MCP_PORT | MCP服务器端口 | 8000 |
+| MCP_PORT | MCP服务器端口 | 6688 |
 | MCP_PATH | MCP服务器路径 | /mcp |
 | WEB_HOST | Web服务器主机 | 0.0.0.0 |
-| WEB_PORT | Web服务器端口 | 8080 |
+| WEB_PORT | Web服务器端口 | 6680 | 
 | WEB_RELOAD | Web服务器自动重载（开发环境） | True |
 | SAP_BASE_URL | SAP接口基础URL | - |
 | SAP_CLIENT_ID | SAP客户端ID | - |
@@ -168,7 +192,7 @@ python -m uvicorn web.main:app --host 0.0.0.0 --port 8080
 
 ### 访问 Web 管理界面
 
-启动服务后，在浏览器中打开：`http://localhost:8080`
+启动服务后，在浏览器中打开：`http://localhost:6680`
 
 ### 服务管理页面
 
@@ -210,6 +234,30 @@ python -m uvicorn web.main:app --host 0.0.0.0 --port 8080
 1. **刷新日志**：点击"刷新日志"按钮查看最新日志
 2. **日志级别过滤**：选择日志级别进行过滤
 3. **清空日志**：点击"清空日志"按钮清空所有日志
+
+---
+
+## 配置 AI 工具
+
+### 支持的 AI 工具类型
+
+本服务可以集成到多种 AI 工具中，包括：
+- **聊天工具**：如 ChatGPT、Cherry Studio
+- **编程工具**：如 Cursor、Claude Code
+- **平台工具**：如 LangChain、Dify
+
+### 配置 MCP 服务地址
+
+在您的 AI 工具中配置 MCP 服务地址为：
+
+```json 
+{
+  "SAP_MCP": {
+    "transport": "streamable_http",
+    "url": "http://localhost:6688/mcp"
+  }
+}
+```
 
 ---
 
