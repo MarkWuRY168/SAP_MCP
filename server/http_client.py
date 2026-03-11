@@ -155,9 +155,12 @@ class SAPHttpClient:
                     result = response.json()
                     logger.info(f"响应数据: {json_module.dumps(result, ensure_ascii=False)[:500]}...")
                     return result
-                except json_module.JSONDecodeError:
+                except json_module.JSONDecodeError as e:
                     logger.error(f"响应错误: 无法解析JSON响应")
-                    raise Exception("SAP接口返回非JSON响应")
+                    logger.error(f"JSON解析错误详情: {str(e)}")
+                    logger.error(f"实际响应内容 (前500字符): {content[:500]}")
+                    logger.error(f"响应内容长度: {len(content)} 字符")
+                    raise Exception("SAP接口返回非JSON响应") from e
                 
             except httpx.HTTPStatusError as e:
                 # 处理HTTP错误

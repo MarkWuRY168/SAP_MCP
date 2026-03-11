@@ -252,9 +252,11 @@ Configure the MCP service address in your AI tools as:
 
 ```json 
 {
-  "SAP_MCP": {
-    "transport": "streamable_http",
-    "url": "http://localhost:6688/mcp"
+  "mcpServers": {
+    "SAP_MCP": {
+      "type": "streamable_http",
+      "url": "http://localhost:6688/mcp"
+    }
   }
 }
 ```

@@ -324,19 +324,83 @@ async def api_get_service_status():
     """获取服务状态"""
     global mcp_server_process, mcp_server_status
     
-    # 检查进程是否还在运行
-    if mcp_server_process is not None:
-        if mcp_server_process.poll() is None:
-            # 进程还在运行，确保状态为running
-            if mcp_server_status["status"] != "running":
+    # 检查端口上是否有MCP服务在运行
+    import socket
+    try:
+        # 如果host是0.0.0.0，使用127.0.0.1进行连接测试
+        test_host = "127.0.0.1" if MCP_SERVER_CONFIG["host"] == "0.0.0.0" else MCP_SERVER_CONFIG["host"]
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((test_host, MCP_SERVER_CONFIG["port"]))
+        sock.close()
+        
+        if result == 0:
+            # 端口被占用，说明有服务在运行
+            # 尝试获取进程信息
+            port_in_use = True
+            
+            # 检查进程是否还在运行
+            if mcp_server_process is not None and mcp_server_process.poll() is None:
+                # Web管理界面启动的进程还在运行
                 mcp_server_status = {
                     "status": "running",
                     "host": MCP_SERVER_CONFIG["host"],
                     "port": MCP_SERVER_CONFIG["port"],
-                    "pid": mcp_server_process.pid
+                    "pid": mcp_server_process.pid,
+                    "managed": True
                 }
+            else:
+                # 端口被占用，但不是Web管理界面启动的进程
+                # 尝试找到占用端口的进程
+                try:
+                    import subprocess
+                    result = subprocess.run(
+                        ['netstat', '-ano'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    for line in result.stdout.split('\n'):
+                        if f':{MCP_SERVER_CONFIG["port"]}' in line and 'LISTENING' in line:
+                            parts = line.split()
+                            if len(parts) >= 5:
+                                pid = int(parts[-1])
+                                mcp_server_status = {
+                                    "status": "running",
+                                    "host": MCP_SERVER_CONFIG["host"],
+                                    "port": MCP_SERVER_CONFIG["port"],
+                                    "pid": pid,
+                                    "managed": False
+                                }
+                                break
+                except Exception as e:
+                    logger.warning(f"无法获取占用端口的进程信息: {str(e)}")
+                    mcp_server_status = {
+                        "status": "running",
+                        "host": MCP_SERVER_CONFIG["host"],
+                        "port": MCP_SERVER_CONFIG["port"],
+                        "managed": False
+                    }
         else:
-            # 进程已经终止，更新状态为stopped
+            # 端口没有被占用，服务停止
+            mcp_server_status = {
+                "status": "stopped",
+                "host": MCP_SERVER_CONFIG["host"],
+                "port": MCP_SERVER_CONFIG["port"]
+            }
+    except Exception as e:
+        logger.error(f"检查服务状态失败: {str(e)}")
+        # 如果无法检查端口，回退到原来的进程检查逻辑
+        if mcp_server_process is not None and mcp_server_process.poll() is None:
+            mcp_server_status = {
+                "status": "running",
+                "host": MCP_SERVER_CONFIG["host"],
+                "port": MCP_SERVER_CONFIG["port"],
+                "pid": mcp_server_process.pid,
+                "managed": True
+            }
+        else:
             mcp_server_status = {
                 "status": "stopped",
                 "host": MCP_SERVER_CONFIG["host"],
@@ -351,6 +415,22 @@ async def api_start_service():
     global mcp_server_process, mcp_server_status
     
     try:
+        # 首先检查服务是否已经在运行
+        import socket
+        try:
+            # 如果host是0.0.0.0，使用127.0.0.1进行连接测试
+            test_host = "127.0.0.1" if MCP_SERVER_CONFIG["host"] == "0.0.0.0" else MCP_SERVER_CONFIG["host"]
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex((test_host, MCP_SERVER_CONFIG["port"]))
+            sock.close()
+            
+            if result == 0:
+                return {"message": "服务已经在运行中", "status": mcp_server_status}
+        except Exception:
+            pass
+        
         if mcp_server_process is not None and mcp_server_process.poll() is None:
             return {"message": "服务已经在运行中", "status": mcp_server_status}
         
@@ -360,9 +440,49 @@ async def api_start_service():
         # 获取项目根目录
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
+        # 尝试找到正确的Python解释器
+        python_exe = sys.executable
+        
+        # 检查是否安装了fastmcp模块
+        import subprocess
+        try:
+            result = subprocess.run(
+                [sys.executable, "-c", "import fastmcp"],
+                capture_output=True,
+                timeout=5
+            )
+            if result.returncode != 0:
+                # 当前Python没有fastmcp，尝试找到有fastmcp的Python
+                logger.warning(f"当前Python解释器({sys.executable})没有fastmcp模块，尝试查找其他Python解释器")
+                
+                # 尝试常见的Python路径
+                possible_pythons = [
+                    r"D:\Users\LEGION-Y9000X\anaconda3\python.exe",
+                    "python",
+                    "python3",
+                    "python3.13",
+                    "python3.12"
+                ]
+                
+                for python_path in possible_pythons:
+                    try:
+                        result = subprocess.run(
+                            [python_path, "-c", "import fastmcp"],
+                            capture_output=True,
+                            timeout=5
+                        )
+                        if result.returncode == 0:
+                            python_exe = python_path
+                            logger.info(f"找到可用的Python解释器: {python_exe}")
+                            break
+                    except Exception:
+                        continue
+        except Exception as e:
+            logger.warning(f"检查Python环境时出错: {str(e)}")
+        
         # 构建启动命令
         cmd = [
-            sys.executable,  # 使用当前Python解释器
+            python_exe,
             os.path.join("server", "sap_mcp_server.py")
         ]
         
@@ -431,8 +551,68 @@ async def api_stop_service():
     global mcp_server_process, mcp_server_status
     
     try:
-        if mcp_server_process is None or mcp_server_process.poll() is not None:
+        # 首先检查服务是否在运行
+        import socket
+        service_running = False
+        try:
+            # 如果host是0.0.0.0，使用127.0.0.1进行连接测试
+            test_host = "127.0.0.1" if MCP_SERVER_CONFIG["host"] == "0.0.0.0" else MCP_SERVER_CONFIG["host"]
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex((test_host, MCP_SERVER_CONFIG["port"]))
+            sock.close()
+            
+            if result != 0:
+                return {"message": "服务已经停止", "status": mcp_server_status}
+        except Exception:
             return {"message": "服务已经停止", "status": mcp_server_status}
+        
+        if mcp_server_process is None or mcp_server_process.poll() is not None:
+            # 进程不是Web管理界面启动的，尝试查找并停止
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['netstat', '-ano'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                for line in result.stdout.split('\n'):
+                    if f':{MCP_SERVER_CONFIG["port"]}' in line and 'LISTENING' in line:
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            pid = int(parts[-1])
+                            logger.info(f"找到占用端口的进程，PID: {pid}")
+                            
+                            # 尝试停止进程
+                            try:
+                                subprocess.run(['taskkill', '/F', '/PID', str(pid)], 
+                                             capture_output=True, timeout=10, check=True)
+                                logger.info(f"成功停止进程 {pid}")
+                                
+                                # 等待进程结束
+                                import time
+                                time.sleep(2)
+                                
+                                # 更新状态
+                                mcp_server_status = {
+                                    "status": "stopped",
+                                    "host": MCP_SERVER_CONFIG["host"],
+                                    "port": MCP_SERVER_CONFIG["port"]
+                                }
+                                
+                                return {"message": "服务停止成功", "status": mcp_server_status}
+                            except subprocess.CalledProcessError as e:
+                                logger.error(f"停止进程失败: {str(e)}")
+                                return {"message": f"服务停止失败: {str(e)}", "status": mcp_server_status}
+                            except Exception as e:
+                                logger.error(f"停止进程异常: {str(e)}")
+                                return {"message": f"服务停止失败: {str(e)}", "status": mcp_server_status}
+                            break
+            except Exception as e:
+                logger.error(f"查找进程失败: {str(e)}")
+                return {"message": f"服务停止失败: {str(e)}", "status": mcp_server_status}
         
         logger.info(f"停止MCP服务器进程，进程ID: {mcp_server_process.pid}")
         

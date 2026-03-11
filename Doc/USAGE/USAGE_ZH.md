@@ -252,9 +252,11 @@ python -m uvicorn web.main:app --host 0.0.0.0 --port 8080
 
 ```json 
 {
-  "SAP_MCP": {
-    "transport": "streamable_http",
-    "url": "http://localhost:6688/mcp"
+  "mcpServers": {
+    "SAP_MCP": {
+      "type": "streamable_http",
+      "url": "http://localhost:6688/mcp"
+    }
   }
 }
 ```
